@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "typeindex": "cpp",
+        "typeinfo": "cpp",
+        "any": "cpp",
+        "optional": "cpp",
+        "variant": "cpp",
+        "ostream": "cpp"
+    }
+}
