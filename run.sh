@@ -13,6 +13,5 @@ do
 done
 
 wait -n
-kill $(jobs -p) 2> /dev/null
 
 exit 0

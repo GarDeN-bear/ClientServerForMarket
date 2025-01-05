@@ -5,10 +5,10 @@
 
 static short port = 5555;
 
-namespace Requests
-{
-    static std::string Registration = "Reg";
-    static std::string Hello = "Hel";
-}
+namespace Requests {
+static std::string Registration = "Registration";
+static std::string Hello = "Hello";
+static std::string Stop = "Stop";
+} // namespace Requests
 
-#endif //CLIENSERVERECN_COMMON_HPP
+#endif // CLIENSERVERECN_COMMON_HPP

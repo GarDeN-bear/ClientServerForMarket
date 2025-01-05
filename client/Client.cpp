@@ -38,6 +38,15 @@ std::string ProcessRegistration(tcp::socket &aSocket) {
   return ReadMessage(aSocket);
 }
 
+tcp::socket *s_ = nullptr;
+std::string my_id_ = "";
+
+// Функция-обработчик сигнала
+void signal_handler(int signum) {
+  SendMessage(*s_, my_id_, Requests::Stop, "");
+  exit(0);
+}
+
 int main() {
   try {
     boost::asio::io_service io_service;
@@ -46,14 +55,19 @@ int main() {
     tcp::resolver::query query(tcp::v4(), "127.0.0.1", std::to_string(port));
     tcp::resolver::iterator iterator = resolver.resolve(query);
 
+    // Устанавливаем обработчик для сигнала SIGINT
+    std::signal(SIGINT, signal_handler);
+
     tcp::socket s(io_service);
     s.connect(*iterator);
+    s_ = &s;
 
     // Мы предполагаем, что для идентификации пользователя будет использоваться
     // ID. Тут мы "регистрируем" пользователя - отправляем на сервер имя, а
     // сервер возвращает нам ID. Этот ID далее используется при отправке
     // запросов.
     std::string my_id = ProcessRegistration(s);
+    my_id_ = my_id;
 
     while (true) {
       // Тут реализовано "бесконечное" меню.
@@ -76,6 +90,7 @@ int main() {
         break;
       }
       case 2: {
+        SendMessage(s, my_id, Requests::Stop, "");
         exit(0);
         break;
       }

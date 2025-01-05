@@ -86,6 +86,9 @@ public:
         // Это реквест на приветствие.
         // Находим имя пользователя по ID и приветствуем его по имени.
         reply = "Hello, " + GetCore().GetUser(j["UserId"]).name + "!\n";
+      } else if (reqType == Requests::Stop) {
+        exit(0);
+        delete this;
       }
 
       boost::asio::async_write(socket_,
