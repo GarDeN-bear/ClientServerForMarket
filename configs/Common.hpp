@@ -7,8 +7,9 @@ static short port = 5555;
 
 namespace Requests {
 static std::string Registration = "Registration";
-static std::string Hello = "Hello";
-static std::string Stop = "Stop";
+static std::string Buy = "Buy";
+static std::string Sell = "Sell";
+static std::string Balance = "Balance";
 } // namespace Requests
 
 #endif // CLIENSERVERECN_COMMON_HPP

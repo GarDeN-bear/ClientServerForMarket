@@ -3,8 +3,10 @@
 
 #include "Common.hpp"
 #include "json.hpp"
+#include <set>
 
 using boost::asio::ip::tcp;
+std::set<std::string> currencies = {"RU", "USD"};
 
 // Отправка сообщения на сервер по шаблону.
 void SendMessage(tcp::socket &aSocket, const std::string &aId,
@@ -38,15 +40,62 @@ std::string ProcessRegistration(tcp::socket &aSocket) {
   return ReadMessage(aSocket);
 }
 
-tcp::socket *s_ = nullptr;
-std::string my_id_ = "";
-
-// Функция-обработчик сигнала
-void signal_handler(int signum) {
-  SendMessage(*s_, my_id_, Requests::Stop, "");
-  exit(0);
+std::string createOrderMessage(const std::string volumeCurrencyType,
+                               const std::string volume,
+                               const std::string priceCurrencyType,
+                               const std::string price) {
+  return "VolumeCurrencyType:" + volumeCurrencyType + ";\nVolume:" + volume +
+         ";\nPriceCurrencyType:" + priceCurrencyType + ";\nPrice:" + price +
+         ";\n";
+}
+// Функция для проверки, можно ли перевести строку в float
+bool is_valid_float(const std::string &str) {
+  try {
+    float value = std::stof(str);
+    return value >= 0.f;
+  } catch (const std::invalid_argument &e) {
+    return false;
+  } catch (const std::out_of_range &e) {
+    return false;
+  }
 }
 
+std::string createOrder() {
+  std::cout << "Enabled for trading currency types:" << std::endl;
+  for (const std::string &currency : currencies) {
+    std::cout << currency << std::endl;
+  }
+  std::cout << "\nInput volume currency type:" << std::endl;
+  std::string volumeCurrencyType;
+  std::cin >> volumeCurrencyType;
+  if (currencies.find(volumeCurrencyType) == currencies.end()) {
+    std::cout << "Wrong currency type\n" << std::endl;
+    return "";
+  }
+  std::cout << "Input volume:" << std::endl;
+  std::string volume;
+  std::cin >> volume;
+  if (!is_valid_float(volume)) {
+    std::cout << "Wrong volume value\n" << std::endl;
+    return "";
+  }
+  std::cout << "Input price currency type:" << std::endl;
+  std::string priceCurrencyType;
+  std::cin >> priceCurrencyType;
+  if (currencies.find(priceCurrencyType) == currencies.end()) {
+    std::cout << "Wrong currency type\n" << std::endl;
+    return "";
+  }
+  std::cout << "Input price:" << std::endl;
+  std::string price;
+  std::cin >> price;
+  if (!is_valid_float(price)) {
+    std::cout << "Wrong price value\n" << std::endl;
+    return "";
+  }
+  return createOrderMessage(volumeCurrencyType, volume, priceCurrencyType,
+                            price);
+}
 int main() {
   try {
     boost::asio::io_service io_service;
@@ -55,25 +104,22 @@ int main() {
     tcp::resolver::query query(tcp::v4(), "127.0.0.1", std::to_string(port));
     tcp::resolver::iterator iterator = resolver.resolve(query);
 
-    // Устанавливаем обработчик для сигнала SIGINT
-    std::signal(SIGINT, signal_handler);
-
     tcp::socket s(io_service);
     s.connect(*iterator);
-    s_ = &s;
 
     // Мы предполагаем, что для идентификации пользователя будет использоваться
     // ID. Тут мы "регистрируем" пользователя - отправляем на сервер имя, а
     // сервер возвращает нам ID. Этот ID далее используется при отправке
     // запросов.
     std::string my_id = ProcessRegistration(s);
-    my_id_ = my_id;
 
     while (true) {
       // Тут реализовано "бесконечное" меню.
       std::cout << "Menu:\n"
-                   "1) Hello Request\n"
-                   "2) Exit\n"
+                   "1) Buy\n"
+                   "2) Sell\n"
+                   "3) Balance\n"
+                   "4) Exit\n"
                 << std::endl;
 
       short menu_option_num;
@@ -81,21 +127,37 @@ int main() {
       std::cout << menu_option_num << std::endl;
       switch (menu_option_num) {
       case 1: {
-        // Для примера того, как может выглядить взаимодействие с сервером
-        // реализован один единственный метод - Hello.
-        // Этот метод получает от сервера приветствие с именем клиента,
-        // отправляя серверу id, полученный при регистрации.
-        SendMessage(s, my_id, Requests::Hello, "");
-        std::cout << ReadMessage(s);
+        const std::string order = createOrder();
+        if (order.empty()) {
+          break;
+        }
+
+        SendMessage(s, my_id, Requests::Buy, order);
+        std::cout << ReadMessage(s) << std::endl;
         break;
       }
       case 2: {
-        SendMessage(s, my_id, Requests::Stop, "");
+        const std::string order = createOrder();
+        if (order.empty()) {
+          break;
+        }
+
+        SendMessage(s, my_id, Requests::Sell, order);
+        std::cout << ReadMessage(s) << std::endl;
+        break;
+      }
+      case 3: {
+        SendMessage(s, my_id, Requests::Balance, "");
+        std::cout << ReadMessage(s) << std::endl;
+        break;
+      }
+      case 4: {
         exit(0);
         break;
       }
       default: {
         std::cout << "Unknown menu option\n" << std::endl;
+        break;
       }
       }
     }

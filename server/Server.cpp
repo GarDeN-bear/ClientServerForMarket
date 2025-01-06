@@ -4,51 +4,155 @@
 #include <boost/bind/bind.hpp>
 #include <cstdlib>
 #include <iostream>
+#include <set>
 
 using boost::asio::ip::tcp;
 
+std::set<std::string> currencies = {"RU", "USD"};
+
 /**
- * @brief Баланс;
- *
+ * @brief Тип заявки.
  */
-struct Currency {
-  float usd = 0.f;
-  float ru = 0.f;
+enum OrderType {
+  OrderType_None, //!< Нет заявки.
+  OrderType_Buy,  //!< Заявка на покупку.
+  OrderType_Sell  //!< Заявка на продажу.
 };
 
+typedef std::map<std::string, float> Balance; //<! Баланс.
+//! Пара тип валюты - значение.
+typedef std::pair<std::string, float> CurrencyTypeValue;
+
+/**
+ * @brief Заявка.
+ */
+struct Order {
+  //! Объём заявки (сколько необходимо купить валюты).
+  CurrencyTypeValue volume = CurrencyTypeValue("", 0.f);
+  //! Цена покупаемой валюты.
+  CurrencyTypeValue price = CurrencyTypeValue("", 0.f);
+  OrderType type = OrderType_None; //!< Тип заявки.
+  std::uint64_t time = 0; //!< Время регистрации заявки.
+};
+
+typedef std::vector<Order> Orders; //!< Заявки.
+
+/**
+ * @brief Пользователь.
+ */
 struct User {
-  std::string name = "Unknown User";
-  Currency balance;
+  std::string name = "Unknown User"; //!< Имя.
+  Balance balance;                   //!< Баланс.
+  Orders orders;                     //!< Заявки.
 };
 
+void parseOrderMessage(Order &order, const std::string str) {
+  std::string strBuff = str;
+  std::string first = ":";
+  std::string last = ";";
+  std::size_t firstIndex = strBuff.find(first);
+  std::size_t lastIndex = strBuff.find(last);
+  order.volume.first =
+      strBuff.substr(firstIndex + 1, lastIndex - firstIndex - 1);
+  strBuff.erase(firstIndex, 1);
+  strBuff.erase(lastIndex - 1, 1);
+  firstIndex = strBuff.find(first);
+  lastIndex = strBuff.find(last);
+  order.volume.second =
+      std::stof(strBuff.substr(firstIndex + 1, lastIndex - firstIndex - 1));
+  strBuff.erase(firstIndex, 1);
+  strBuff.erase(lastIndex - 1, 1);
+  firstIndex = strBuff.find(first);
+  lastIndex = strBuff.find(last);
+  order.price.first =
+      strBuff.substr(firstIndex + 1, lastIndex - firstIndex - 1);
+  strBuff.erase(firstIndex, 1);
+  strBuff.erase(lastIndex - 1, 1);
+  firstIndex = strBuff.find(first);
+  lastIndex = strBuff.find(last);
+  order.price.second =
+      std::stof(strBuff.substr(firstIndex + 1, lastIndex - firstIndex - 2));
+  strBuff.erase(firstIndex, 1);
+  strBuff.erase(lastIndex, 1);
+}
+
+std::string createBalanceMessage(const User &user) {
+  std::string balanceMessage;
+  for (const auto &currencyTypeValue : user.balance) {
+    balanceMessage += (std::to_string(currencyTypeValue.second) +
+                       currencyTypeValue.first + '\n');
+  }
+  return balanceMessage;
+}
+
+/**
+ * @brief Класс хранилища пользователей и заявок в "стакане".
+ * @details Регистрирует новых пользователей, добавляет заявки на
+ * покупку/продажу и возвращает баланс пользователя.
+ */
 class Core {
 public:
-  // "Регистрирует" нового пользователя и возвращает его ID.
+  /**
+   * @brief Зарегистрировать нового пользователя.
+   * @param aUserName Имя пользователя.
+   * @return ID нового пользователя.
+   */
   std::string RegisterNewUser(const std::string &aUserName) {
     size_t newUserId = mUsers.size();
     mUsers[newUserId].name = aUserName;
-
+    for (const std::string currency : currencies) {
+      mUsers[newUserId].balance[currency] = 0.f;
+    }
     return std::to_string(newUserId);
   }
 
-  // Запрос данных клиента по ID
+  /**
+   * @brief Получить информацию о клиенте.
+   * @param aUserId ID пользователя.
+   * @return Пользователь.
+   */
   User GetUser(const std::string &aUserId) {
     const auto userIt = mUsers.find(std::stoi(aUserId));
     if (userIt == mUsers.cend()) {
       std::cout << "Error! Unknown User" << std::endl;
-      return unknownUser_;
+      User unknownUser;
+      return unknownUser;
     } else {
       return userIt->second;
     }
   }
 
+  /**
+   * @brief Зарегистрировать заявку на покупку/продажу.
+   * @param aUserId ID пользователя.
+   * @param order Заявка.
+   * @return Результат регистрации заявки.
+   */
+  std::string RegisterOrder(const std::string &aUserId, const Order &order) {
+    User user = GetUser(aUserId);
+    if (user.name != "Unknown User") {
+      depthOfMarket_.push_back(order);
+      user.orders.push_back(order);
+      return "Order to " +
+             std::string(order.type == OrderType_Buy ? "buy " : "sell ") +
+             std::to_string(order.volume.second) + " " + order.volume.first +
+             " for " + std::to_string(order.price.second) + " " +
+             order.price.first + " apiece";
+    }
+    return user.name;
+  }
+
 private:
-  // <UserId, UserName>
+  //! Пользователи биржи.
   std::map<size_t, User> mUsers;
-  User unknownUser_;
+  //! Таблица лимитных заявок ("стакан").
+  Orders depthOfMarket_;
 };
 
-Core &GetCore() {
+/**
+ * @brief Глобавльное хранилище пользователей и заявок в "стакане".
+ */
+inline Core &GetCore() {
   static Core core;
   return core;
 }
@@ -82,13 +186,24 @@ public:
         // Это реквест на регистрацию пользователя.
         // Добавляем нового пользователя и возвращаем его ID.
         reply = GetCore().RegisterNewUser(j["Message"]);
-      } else if (reqType == Requests::Hello) {
-        // Это реквест на приветствие.
-        // Находим имя пользователя по ID и приветствуем его по имени.
-        reply = "Hello, " + GetCore().GetUser(j["UserId"]).name + "!\n";
-      } else if (reqType == Requests::Stop) {
-        exit(0);
-        delete this;
+      } else if (reqType == Requests::Buy) {
+        // Это реквест на регистрацию заявки на покупку.
+        // Добавляем заявку пользователя в "стакан".
+        Order order;
+        parseOrderMessage(order, j["Message"]);
+        order.type = OrderType_Buy;
+        reply = GetCore().RegisterOrder(j["UserId"], order);
+      } else if (reqType == Requests::Sell) {
+        // Это реквест на регистрацию заявки на продажу.
+        // Добавляем заявку пользователя в "стакан".
+        Order order;
+        parseOrderMessage(order, j["Message"]);
+        order.type = OrderType_Sell;
+        reply = GetCore().RegisterOrder(j["UserId"], order);
+      } else if (reqType == Requests::Balance) {
+        // Это реквест на регистрацию заявки на продажу.
+        // Добавляем заявку пользователя в "стакан".
+        reply = createBalanceMessage(GetCore().GetUser(j["UserId"]));
       }
 
       boost::asio::async_write(socket_,

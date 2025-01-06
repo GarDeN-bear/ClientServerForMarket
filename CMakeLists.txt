@@ -7,6 +7,6 @@ ADD_SUBDIRECTORY(server)
 
 ADD_CUSTOM_TARGET(run_project
     COMMAND bash ${CMAKE_SOURCE_DIR}/run.sh
-        ${CMAKE_SOURCE_DIR} $<TARGET_FILE:Server> Server
-        ${CMAKE_SOURCE_DIR} $<TARGET_FILE:Client> Client
+        ${CMAKE_SOURCE_DIR} $<TARGET_FILE:Server>
+        ${CMAKE_SOURCE_DIR} $<TARGET_FILE:Client>
 )

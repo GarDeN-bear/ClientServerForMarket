@@ -3,12 +3,8 @@
 while (( $# ))
 do
     cd "$1" || exit 1
-    if [ "$3" == "Server" ]; then
-        ${2:-} &
-    elif [ "$3" == "Client" ]; then
-        ${2:-}
-    fi
-    shift 3
+    gnome-terminal -- bash -c "${2:-}; exec bash"
+    shift 2
     sleep 1
 done
 
