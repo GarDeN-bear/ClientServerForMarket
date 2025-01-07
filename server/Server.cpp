@@ -4,6 +4,7 @@
 #include <boost/bind/bind.hpp>
 #include <cstdlib>
 #include <iostream>
+#include <queue>
 #include <set>
 
 using boost::asio::ip::tcp;
@@ -27,6 +28,7 @@ typedef std::pair<std::string, float> CurrencyTypeValue;
  * @brief Заявка.
  */
 struct Order {
+  std::string userID; //!< ID пользователя.
   //! Объём заявки (сколько необходимо купить валюты).
   CurrencyTypeValue volume = CurrencyTypeValue("", 0.f);
   //! Цена покупаемой валюты.
@@ -35,7 +37,34 @@ struct Order {
   std::uint64_t time = 0; //!< Время регистрации заявки.
 };
 
-typedef std::vector<Order> Orders; //!< Заявки.
+// Компаратор для заявок на покупку
+struct CompareBuy {
+  bool operator()(const Order &a, const Order &b) const {
+    // Высокие цены и раннее время регистрации должны быть выше
+    if (a.price.second != b.price.second) {
+      return a.price.second > b.price.second; // Большая цена - выше
+    }
+    return a.time > b.time; // Раннее время регистрации - выше
+  }
+};
+
+// Компаратор для заявок на продажу
+struct CompareSell {
+  bool operator()(const Order &a, const Order &b) const {
+    // Низкие цены и раннее время регистрации должны быть выше
+    if (a.price.second != b.price.second) {
+      return a.price.second < b.price.second; // Меньшая цена - выше
+    }
+    return a.time > b.time; // Раннее время регистрации - выше
+  }
+};
+
+// Компаратор для заявок
+struct Compare {
+  bool operator()(const Order &a, const Order &b) const {
+    return a.time > b.time; // Раннее время регистрации - выше
+  }
+};
 
 /**
  * @brief Пользователь.
@@ -43,7 +72,7 @@ typedef std::vector<Order> Orders; //!< Заявки.
 struct User {
   std::string name = "Unknown User"; //!< Имя.
   Balance balance;                   //!< Баланс.
-  Orders orders;                     //!< Заявки.
+  std::set<Order, Compare> orders;   //!< Заявки.
 };
 
 CurrencyTypeValue parseTypeValueMessage(std::string str) {
@@ -86,6 +115,43 @@ std::string createBalanceMessage(const User &user) {
 class Core {
 public:
   /**
+   * @brief Обработка заявок в "стакане".
+   */
+  void process() { matchOrders(); }
+
+  void matchOrders() {
+    if (orderBookToBuy_.empty() || orderBookToSell_.empty()) {
+      return;
+    }
+
+    Order orderToSell = *orderBookToSell_.begin();
+    Order orderToBuy = *orderBookToBuy_.begin();
+    CurrencyTypeValue price(orderToSell.price.first, 0.f);
+    CurrencyTypeValue volume(orderToSell.volume.first, 0.f);
+
+    if (orderToBuy.price.second >= orderToSell.price.second) {
+      CancelOrder(orderToSell);
+      CancelOrder(orderToBuy);
+      if (orderToSell.volume.second > orderToBuy.volume.second) {
+        orderToSell.volume.second -= orderToBuy.volume.second;
+        price.second = orderToBuy.price.second * orderToBuy.volume.second;
+        volume.second = orderToBuy.volume.second;
+        RegisterOrder(orderToSell);
+      } else if (orderToSell.volume.second < orderToBuy.volume.second) {
+        orderToBuy.volume.second -= orderToSell.volume.second;
+        volume.second = orderToSell.volume.second;
+        price.second = orderToBuy.price.second * orderToSell.volume.second;
+        RegisterOrder(orderToBuy);
+      }
+      Withdraw(orderToSell.userID, volume);
+      Deposit(orderToBuy.userID, volume);
+
+      std::cout << orderToBuy.price.second << " " << price.second << std::endl;
+      Deposit(orderToSell.userID, price);
+      Withdraw(orderToBuy.userID, price);
+    }
+  }
+  /**
    * @brief Зарегистрировать нового пользователя.
    * @param aUserName Имя пользователя.
    * @return ID нового пользователя.
@@ -117,16 +183,36 @@ public:
 
   /**
    * @brief Зарегистрировать заявку на покупку/продажу.
-   * @param aUserId ID пользователя.
    * @param order Заявка.
    * @return Результат регистрации заявки.
    */
-  std::string RegisterOrder(const std::string &aUserId, const Order &order) {
-    User user = GetUser(aUserId);
+  std::string RegisterOrder(const Order &order) {
+    User user = GetUser(order.userID);
     if (user.name != "Unknown User") {
-      depthOfMarket_.push_back(order);
-      mUsers.find(std::stoi(aUserId))->second.orders.push_back(order);
+      order.type == OrderType_Buy ? orderBookToBuy_.insert(order)
+                                  : orderBookToSell_.insert(order);
+      mUsers.find(std::stoi(order.userID))->second.orders.insert(order);
       return "-->Order to " +
+             std::string(order.type == OrderType_Buy ? "buy " : "sell ") +
+             std::to_string(order.volume.second) + order.volume.first +
+             " for " + std::to_string(order.price.second) + order.price.first +
+             " apiece accepted";
+    }
+    return user.name;
+  }
+
+  /**
+   * @brief Отменить заявку на покупку/продажу.
+   * @param order Заявка.
+   * @return Результат отмены заявки.
+   */
+  std::string CancelOrder(const Order &order) {
+    User user = GetUser(order.userID);
+    if (user.name != "Unknown User") {
+      order.type == OrderType_Buy ? orderBookToBuy_.erase(order)
+                                  : orderBookToSell_.erase(order);
+      mUsers.find(std::stoi(order.userID))->second.orders.erase(order);
+      return "-->Cancel order to " +
              std::string(order.type == OrderType_Buy ? "buy " : "sell ") +
              std::to_string(order.volume.second) + order.volume.first +
              " for " + std::to_string(order.price.second) + order.price.first +
@@ -138,7 +224,7 @@ public:
   /**
    * @brief Снять денежные средства.
    * @param aUserId ID пользователя.
-   * @param currencyTypeValue Тмп валюты-значение.
+   * @param currencyTypeValue Тип валюты-значение.
    * @return Результат снятия денежных средств.
    */
   std::string Withdraw(const std::string &aUserId,
@@ -174,8 +260,10 @@ public:
 private:
   //! Пользователи биржи.
   std::map<size_t, User> mUsers;
-  //! Таблица лимитных заявок ("стакан").
-  Orders depthOfMarket_;
+  //! Таблица заявок на покупку.
+  std::set<Order, CompareBuy> orderBookToBuy_;
+  //! Таблица заявок на продажу.
+  std::set<Order, CompareSell> orderBookToSell_;
 };
 
 /**
@@ -221,14 +309,16 @@ public:
         Order order;
         parseOrderMessage(order, j["Message"]);
         order.type = OrderType_Buy;
-        reply = GetCore().RegisterOrder(j["UserId"], order);
+        order.userID = j["UserId"];
+        reply = GetCore().RegisterOrder(order);
       } else if (reqType == Requests::Sell) {
         // Это реквест на регистрацию заявки на продажу.
         // Добавляем заявку пользователя в "стакан".
         Order order;
         parseOrderMessage(order, j["Message"]);
         order.type = OrderType_Sell;
-        reply = GetCore().RegisterOrder(j["UserId"], order);
+        order.userID = j["UserId"];
+        reply = GetCore().RegisterOrder(order);
       } else if (reqType == Requests::Balance) {
         // Это реквест на получение баланса пользователя.
         reply = createBalanceMessage(GetCore().GetUser(j["UserId"]));
@@ -273,7 +363,8 @@ class server {
 public:
   server(boost::asio::io_service &io_service)
       : io_service_(io_service),
-        acceptor_(io_service, tcp::endpoint(tcp::v4(), port)) {
+        acceptor_(io_service, tcp::endpoint(tcp::v4(), port)),
+        timer_(io_service, boost::asio::chrono::seconds(1)) {
     std::cout << "Server started! Listen " << port << " port" << std::endl;
 
     session *new_session = new session(io_service_);
@@ -281,6 +372,9 @@ public:
                            boost::bind(&server::handle_accept, this,
                                        new_session,
                                        boost::asio::placeholders::error));
+
+    // Запуск таймера
+    start_timer();
   }
 
   void handle_accept(session *new_session,
@@ -300,6 +394,20 @@ public:
 private:
   boost::asio::io_service &io_service_;
   tcp::acceptor acceptor_;
+  boost::asio::steady_timer timer_;
+
+  void start_timer() {
+    timer_.async_wait(boost::bind(&server::process_orders, this));
+  }
+
+  void process_orders() {
+    // Вызов метода process
+    GetCore().process();
+
+    // Перезапуск таймера
+    timer_.expires_at(timer_.expiry() + boost::asio::chrono::seconds(1));
+    start_timer();
+  }
 };
 
 int main() {
