@@ -10,6 +10,8 @@ static std::string Registration = "Registration";
 static std::string Buy = "Buy";
 static std::string Sell = "Sell";
 static std::string Balance = "Balance";
+static std::string Deposit = "Deposit";
+static std::string Withdraw = "Withdraw";
 } // namespace Requests
 
 #endif // CLIENSERVERECN_COMMON_HPP

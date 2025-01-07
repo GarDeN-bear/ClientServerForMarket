@@ -46,34 +46,27 @@ struct User {
   Orders orders;                     //!< Заявки.
 };
 
-void parseOrderMessage(Order &order, const std::string str) {
-  std::string strBuff = str;
+CurrencyTypeValue parseTypeValueMessage(std::string str) {
   std::string first = ":";
   std::string last = ";";
-  std::size_t firstIndex = strBuff.find(first);
-  std::size_t lastIndex = strBuff.find(last);
-  order.volume.first =
-      strBuff.substr(firstIndex + 1, lastIndex - firstIndex - 1);
-  strBuff.erase(firstIndex, 1);
-  strBuff.erase(lastIndex - 1, 1);
-  firstIndex = strBuff.find(first);
-  lastIndex = strBuff.find(last);
-  order.volume.second =
-      std::stof(strBuff.substr(firstIndex + 1, lastIndex - firstIndex - 1));
-  strBuff.erase(firstIndex, 1);
-  strBuff.erase(lastIndex - 1, 1);
-  firstIndex = strBuff.find(first);
-  lastIndex = strBuff.find(last);
-  order.price.first =
-      strBuff.substr(firstIndex + 1, lastIndex - firstIndex - 1);
-  strBuff.erase(firstIndex, 1);
-  strBuff.erase(lastIndex - 1, 1);
-  firstIndex = strBuff.find(first);
-  lastIndex = strBuff.find(last);
-  order.price.second =
-      std::stof(strBuff.substr(firstIndex + 1, lastIndex - firstIndex - 2));
-  strBuff.erase(firstIndex, 1);
-  strBuff.erase(lastIndex, 1);
+  std::size_t firstIndex = str.find(first);
+  std::size_t lastIndex = str.find(last);
+  CurrencyTypeValue currencyTypeValue;
+  currencyTypeValue.first =
+      str.substr(firstIndex + 1, lastIndex - firstIndex - 1);
+  str.erase(firstIndex, 1);
+  str.erase(lastIndex - 1, 1);
+  firstIndex = str.find(first);
+  lastIndex = str.find(last);
+  currencyTypeValue.second =
+      std::stof(str.substr(firstIndex + 1, lastIndex - firstIndex - 1));
+  return currencyTypeValue;
+}
+
+void parseOrderMessage(Order &order, std::string str) {
+  std::string sep = "|";
+  order.volume = parseTypeValueMessage(str);
+  order.price = parseTypeValueMessage(str.erase(0, str.find(sep)));
 }
 
 std::string createBalanceMessage(const User &user) {
@@ -132,12 +125,48 @@ public:
     User user = GetUser(aUserId);
     if (user.name != "Unknown User") {
       depthOfMarket_.push_back(order);
-      user.orders.push_back(order);
-      return "Order to " +
+      mUsers.find(std::stoi(aUserId))->second.orders.push_back(order);
+      return "-->Order to " +
              std::string(order.type == OrderType_Buy ? "buy " : "sell ") +
-             std::to_string(order.volume.second) + " " + order.volume.first +
-             " for " + std::to_string(order.price.second) + " " +
-             order.price.first + " apiece";
+             std::to_string(order.volume.second) + order.volume.first +
+             " for " + std::to_string(order.price.second) + order.price.first +
+             " apiece accepted";
+    }
+    return user.name;
+  }
+
+  /**
+   * @brief Снять денежные средства.
+   * @param aUserId ID пользователя.
+   * @param currencyTypeValue Тмп валюты-значение.
+   * @return Результат снятия денежных средств.
+   */
+  std::string Withdraw(const std::string &aUserId,
+                       const CurrencyTypeValue &currencyTypeValue) {
+    User user = GetUser(aUserId);
+    if (user.name != "Unknown User") {
+      mUsers.find(std::stoi(aUserId))
+          ->second.balance[currencyTypeValue.first] -= currencyTypeValue.second;
+      return "-->Withdraw " + std::to_string(currencyTypeValue.second) +
+             currencyTypeValue.first + " accepted";
+    }
+    return user.name;
+  }
+
+  /**
+   * @brief Внести денежные средства.
+   * @param aUserId ID пользователя.
+   * @param currencyTypeValue Тмп валюты-значение.
+   * @return Результат внесения денежных средств.
+   */
+  std::string Deposit(const std::string &aUserId,
+                      const CurrencyTypeValue &currencyTypeValue) {
+    User user = GetUser(aUserId);
+    if (user.name != "Unknown User") {
+      mUsers.find(std::stoi(aUserId))
+          ->second.balance[currencyTypeValue.first] += currencyTypeValue.second;
+      return "-->Deposit " + std::to_string(currencyTypeValue.second) +
+             currencyTypeValue.first + " accepted";
     }
     return user.name;
   }
@@ -201,9 +230,16 @@ public:
         order.type = OrderType_Sell;
         reply = GetCore().RegisterOrder(j["UserId"], order);
       } else if (reqType == Requests::Balance) {
-        // Это реквест на регистрацию заявки на продажу.
-        // Добавляем заявку пользователя в "стакан".
+        // Это реквест на получение баланса пользователя.
         reply = createBalanceMessage(GetCore().GetUser(j["UserId"]));
+      } else if (reqType == Requests::Deposit) {
+        // Это реквест на внесение денежный средств.
+        reply =
+            GetCore().Deposit(j["UserId"], parseTypeValueMessage(j["Message"]));
+      } else if (reqType == Requests::Withdraw) {
+        // Это реквест на снятие денежных средств.
+        reply = GetCore().Withdraw(j["UserId"],
+                                   parseTypeValueMessage(j["Message"]));
       }
 
       boost::asio::async_write(socket_,

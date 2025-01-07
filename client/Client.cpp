@@ -40,12 +40,9 @@ std::string ProcessRegistration(tcp::socket &aSocket) {
   return ReadMessage(aSocket);
 }
 
-std::string createOrderMessage(const std::string volumeCurrencyType,
-                               const std::string volume,
-                               const std::string priceCurrencyType,
-                               const std::string price) {
-  return "VolumeCurrencyType:" + volumeCurrencyType + ";\nVolume:" + volume +
-         ";\nPriceCurrencyType:" + priceCurrencyType + ";\nPrice:" + price +
+std::string createTypeValuePairMessage(const std::string &currencyType,
+                                       const std::string &currencyValue) {
+  return "CurrencyType:" + currencyType + ";\nCurrencyValue:" + currencyValue +
          ";\n";
 }
 // Функция для проверки, можно ли перевести строку в float
@@ -59,43 +56,61 @@ bool is_valid_float(const std::string &str) {
     return false;
   }
 }
+std::string inputCurrencyType() {
+  std::cout << "Input currency type:" << std::endl;
+  std::string currencyType;
+  std::cin >> currencyType;
+  if (currencies.find(currencyType) == currencies.end()) {
+    return "";
+  }
+  return currencyType;
+}
 
-std::string createOrder() {
+std::string inputCurrencyValue() {
+  std::cout << "Input currency value:" << std::endl;
+  std::string currencyValue;
+  std::cin >> currencyValue;
+  if (!is_valid_float(currencyValue)) {
+    return "";
+  }
+  return currencyValue;
+}
+
+void showCurrencyTypes() {
   std::cout << "Enabled for trading currency types:" << std::endl;
   for (const std::string &currency : currencies) {
     std::cout << currency << std::endl;
   }
-  std::cout << "\nInput volume currency type:" << std::endl;
-  std::string volumeCurrencyType;
-  std::cin >> volumeCurrencyType;
-  if (currencies.find(volumeCurrencyType) == currencies.end()) {
+}
+std::string createOrder() {
+  showCurrencyTypes();
+  std::cout << "\nInput volume" << std::endl;
+  std::string volumeCurrencyType = inputCurrencyType();
+  if (volumeCurrencyType.empty()) {
     std::cout << "Wrong currency type\n" << std::endl;
     return "";
   }
-  std::cout << "Input volume:" << std::endl;
-  std::string volume;
-  std::cin >> volume;
-  if (!is_valid_float(volume)) {
+  std::string volume = inputCurrencyValue();
+  if (volume.empty()) {
     std::cout << "Wrong volume value\n" << std::endl;
     return "";
   }
-  std::cout << "Input price currency type:" << std::endl;
-  std::string priceCurrencyType;
-  std::cin >> priceCurrencyType;
-  if (currencies.find(priceCurrencyType) == currencies.end()) {
+  std::cout << "\nInput price" << std::endl;
+  std::string priceCurrencyType = inputCurrencyType();
+  if (priceCurrencyType.empty()) {
     std::cout << "Wrong currency type\n" << std::endl;
     return "";
   }
-  std::cout << "Input price:" << std::endl;
-  std::string price;
-  std::cin >> price;
-  if (!is_valid_float(price)) {
+  std::string price = inputCurrencyValue();
+  if (price.empty()) {
     std::cout << "Wrong price value\n" << std::endl;
     return "";
   }
-  return createOrderMessage(volumeCurrencyType, volume, priceCurrencyType,
-                            price);
+  return createTypeValuePairMessage(volumeCurrencyType, volume) +
+         std::string("|") +
+         createTypeValuePairMessage(priceCurrencyType, price);
 }
+
 int main() {
   try {
     boost::asio::io_service io_service;
@@ -119,7 +134,9 @@ int main() {
                    "1) Buy\n"
                    "2) Sell\n"
                    "3) Balance\n"
-                   "4) Exit\n"
+                   "4) Deposit\n"
+                   "5) Withdraw\n"
+                   "6) Exit\n"
                 << std::endl;
 
       short menu_option_num;
@@ -152,6 +169,40 @@ int main() {
         break;
       }
       case 4: {
+        showCurrencyTypes();
+
+        const std::string depositCurrencyType = inputCurrencyType();
+        if (depositCurrencyType.empty()) {
+          break;
+        }
+        const std::string depositCurrencyValue = inputCurrencyValue();
+        if (depositCurrencyValue.empty()) {
+          break;
+        }
+        SendMessage(s, my_id, Requests::Deposit,
+                    createTypeValuePairMessage(depositCurrencyType,
+                                               depositCurrencyValue));
+        std::cout << ReadMessage(s) << std::endl;
+        break;
+      }
+      case 5: {
+        showCurrencyTypes();
+
+        const std::string withdrawCurrencyType = inputCurrencyType();
+        if (withdrawCurrencyType.empty()) {
+          break;
+        }
+        const std::string withdrawCurrencyValue = inputCurrencyValue();
+        if (withdrawCurrencyValue.empty()) {
+          break;
+        }
+        SendMessage(s, my_id, Requests::Withdraw,
+                    createTypeValuePairMessage(withdrawCurrencyType,
+                                               withdrawCurrencyValue));
+        std::cout << ReadMessage(s) << std::endl;
+        break;
+      }
+      case 6: {
         exit(0);
         break;
       }
