@@ -12,6 +12,8 @@ static std::string Sell = "Sell";
 static std::string Balance = "Balance";
 static std::string Deposit = "Deposit";
 static std::string Withdraw = "Withdraw";
+static std::string Orders = "Orders";
+static std::string Cancel = "Cancel";
 } // namespace Requests
 
 #endif // CLIENSERVERECN_COMMON_HPP

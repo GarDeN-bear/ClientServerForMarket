@@ -2,6 +2,7 @@
 #include "json.hpp"
 #include <boost/asio.hpp>
 #include <boost/bind/bind.hpp>
+#include <chrono>
 #include <cstdlib>
 #include <iostream>
 #include <queue>
@@ -34,7 +35,7 @@ struct Order {
   //! Цена покупаемой валюты.
   CurrencyTypeValue price = CurrencyTypeValue("", 0.f);
   OrderType type = OrderType_None; //!< Тип заявки.
-  std::uint64_t time = 0; //!< Время регистрации заявки.
+  std::time_t time = 0; //!< Время регистрации заявки.
 };
 
 // Компаратор для заявок на покупку
@@ -92,10 +93,18 @@ CurrencyTypeValue parseTypeValueMessage(std::string str) {
   return currencyTypeValue;
 }
 
-void parseOrderMessage(Order &order, std::string str) {
-  std::string sep = "|";
-  order.volume = parseTypeValueMessage(str);
-  order.price = parseTypeValueMessage(str.erase(0, str.find(sep)));
+Order parseOrderMessage(std::string str) {
+  Order order;
+  nlohmann::json j = nlohmann::json::parse(str);
+  order.volume.first = j["volume"]["currencyType"].get<std::string>();
+  order.volume.second = std::stof(j["volume"]["value"].get<std::string>());
+  order.price.first = j["price"]["currencyType"].get<std::string>();
+  order.price.second = std::stof(j["price"]["value"].get<std::string>());
+  std::cout << order.price.second << std::endl;
+  order.time = std::time_t(std::stol(j["time"].get<std::string>()));
+  order.type =
+      j["type"].get<std::string>() == "Buy" ? OrderType_Buy : OrderType_Sell;
+  return order;
 }
 
 std::string createBalanceMessage(const User &user) {
@@ -105,6 +114,27 @@ std::string createBalanceMessage(const User &user) {
                        currencyTypeValue.first + '\n');
   }
   return balanceMessage;
+}
+
+std::string createOrdersMessage(const User &user) {
+  if (user.orders.empty()) {
+    return "No orders";
+  }
+  nlohmann::json jsonMessage;
+  std::size_t num = 0;
+  for (const auto &order : user.orders) {
+    ++num;
+    jsonMessage[std::to_string(num)] = {
+        {"volume",
+         {{"currencyType", order.volume.first},
+          {"value", order.volume.second}}},
+        {"price",
+         {{"currencyType", order.price.first}, {"value", order.price.second}}},
+        {"type", order.type},
+        {"time", order.time}};
+  }
+  jsonMessage["count"] = num;
+  return jsonMessage.dump();
 }
 
 /**
@@ -192,6 +222,8 @@ public:
       order.type == OrderType_Buy ? orderBookToBuy_.insert(order)
                                   : orderBookToSell_.insert(order);
       mUsers.find(std::stoi(order.userID))->second.orders.insert(order);
+      std::cout << mUsers.find(std::stoi(order.userID))->second.orders.size()
+                << std::endl;
       return "-->Order to " +
              std::string(order.type == OrderType_Buy ? "buy " : "sell ") +
              std::to_string(order.volume.second) + order.volume.first +
@@ -306,17 +338,13 @@ public:
       } else if (reqType == Requests::Buy) {
         // Это реквест на регистрацию заявки на покупку.
         // Добавляем заявку пользователя в "стакан".
-        Order order;
-        parseOrderMessage(order, j["Message"]);
-        order.type = OrderType_Buy;
+        Order order = parseOrderMessage(j["Message"]);
         order.userID = j["UserId"];
         reply = GetCore().RegisterOrder(order);
       } else if (reqType == Requests::Sell) {
         // Это реквест на регистрацию заявки на продажу.
         // Добавляем заявку пользователя в "стакан".
-        Order order;
-        parseOrderMessage(order, j["Message"]);
-        order.type = OrderType_Sell;
+        Order order = parseOrderMessage(j["Message"]);
         order.userID = j["UserId"];
         reply = GetCore().RegisterOrder(order);
       } else if (reqType == Requests::Balance) {
@@ -330,6 +358,15 @@ public:
         // Это реквест на снятие денежных средств.
         reply = GetCore().Withdraw(j["UserId"],
                                    parseTypeValueMessage(j["Message"]));
+      } else if (reqType == Requests::Orders) {
+        // Это реквест на получение списка заявок пользователя.
+        reply = createOrdersMessage(GetCore().GetUser(j["UserId"]));
+      } else if (reqType == Requests::Cancel) {
+        // Это реквест на отмену заявки.
+        // Order order;
+        // parseOrderMessage(order, j["Message"]);
+        // order.userID = j["UserId"];
+        // reply = GetCore().CancelOrder(order);
       }
 
       boost::asio::async_write(socket_,

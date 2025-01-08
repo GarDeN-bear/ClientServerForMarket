@@ -43,7 +43,7 @@ std::string ProcessRegistration(tcp::socket &aSocket) {
 std::string createTypeValuePairMessage(const std::string &currencyType,
                                        const std::string &currencyValue) {
   return "CurrencyType:" + currencyType + ";\nCurrencyValue:" + currencyValue +
-         ";\n";
+         ";";
 }
 // Функция для проверки, можно ли перевести строку в float
 bool is_valid_float(const std::string &str) {
@@ -66,6 +66,44 @@ std::string inputCurrencyType() {
   return currencyType;
 }
 
+/**
+ * @brief Тип заявки.
+ */
+enum OrderType {
+  OrderType_None, //!< Нет заявки.
+  OrderType_Buy,  //!< Заявка на покупку.
+  OrderType_Sell  //!< Заявка на продажу.
+};
+
+void parseOrdersMessage(const std::string &str) {
+  nlohmann::json j = nlohmann::json::parse(str);
+  const std::size_t num = j["count"].get<std::size_t>();
+  std::cout << "Count opened orders: " + std::to_string(num) << std::endl;
+  for (size_t i = 0; i < num; ++i) {
+    std::cout << "Order №" << i + 1 << ":" << std::endl;
+    std::cout << "Order type: "
+              << (j[std::to_string(i + 1)]["type"].get<OrderType>() ==
+                          OrderType_Buy
+                      ? "Buy"
+                      : "Sell")
+              << std::endl;
+    std::time_t time;
+    j[std::to_string(i + 1)]["time"].get_to(time);
+    std::cout << "Registration time: " << std::ctime(&time);
+    std::cout
+        << "Volume: "
+        << j[std::to_string(i + 1)]["volume"]["value"].get<float>() << " "
+        << j[std::to_string(i + 1)]["volume"]["currencyType"].get<std::string>()
+        << std::endl;
+    std::cout
+        << "Price: " << j[std::to_string(i + 1)]["price"]["value"].get<float>()
+        << " "
+        << j[std::to_string(i + 1)]["price"]["currencyType"].get<std::string>()
+        << std::endl;
+    std::cout << std::endl;
+  }
+}
+
 std::string inputCurrencyValue() {
   std::cout << "Input currency value:" << std::endl;
   std::string currencyValue;
@@ -82,7 +120,27 @@ void showCurrencyTypes() {
     std::cout << currency << std::endl;
   }
 }
-std::string createOrder() {
+struct OrderMessage {
+  std::pair<std::string, std::string> volume;
+  std::pair<std::string, std::string> price;
+  std::string type;
+  std::string time;
+};
+
+// Функция для создания JSON строки из OrderMessage
+std::string orderMessageToJson(const OrderMessage &message) {
+  nlohmann::json jsonMessage;
+  jsonMessage["volume"] = {{"currencyType", message.volume.first},
+                           {"value", message.volume.second}};
+  jsonMessage["price"] = {{"currencyType", message.price.first},
+                          {"value", message.price.second}};
+  jsonMessage["type"] = message.type;
+  jsonMessage["time"] = message.time;
+
+  return jsonMessage.dump();
+}
+
+std::string createOrder(const std::string &orderType) {
   showCurrencyTypes();
   std::cout << "\nInput volume" << std::endl;
   std::string volumeCurrencyType = inputCurrencyType();
@@ -106,9 +164,16 @@ std::string createOrder() {
     std::cout << "Wrong price value\n" << std::endl;
     return "";
   }
-  return createTypeValuePairMessage(volumeCurrencyType, volume) +
-         std::string("|") +
-         createTypeValuePairMessage(priceCurrencyType, price);
+  std::time_t time =
+      std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+  OrderMessage message;
+  message.volume.first = volumeCurrencyType;
+  message.volume.second = volume;
+  message.price.first = priceCurrencyType;
+  message.price.second = price;
+  message.type = orderType;
+  message.time = std::to_string(time);
+  return orderMessageToJson(message);
 }
 
 int main() {
@@ -136,7 +201,9 @@ int main() {
                    "3) Balance\n"
                    "4) Deposit\n"
                    "5) Withdraw\n"
-                   "6) Exit\n"
+                   "6) Orders\n"
+                   "7) Cancel\n"
+                   "8) Exit\n"
                 << std::endl;
 
       short menu_option_num;
@@ -144,7 +211,7 @@ int main() {
       std::cout << menu_option_num << std::endl;
       switch (menu_option_num) {
       case 1: {
-        const std::string order = createOrder();
+        const std::string order = createOrder(Requests::Buy);
         if (order.empty()) {
           break;
         }
@@ -154,7 +221,7 @@ int main() {
         break;
       }
       case 2: {
-        const std::string order = createOrder();
+        const std::string order = createOrder(Requests::Sell);
         if (order.empty()) {
           break;
         }
@@ -203,6 +270,29 @@ int main() {
         break;
       }
       case 6: {
+        SendMessage(s, my_id, Requests::Orders, "");
+        std::string message = ReadMessage(s);
+        if (message == "No orders") {
+          break;
+        }
+        parseOrdersMessage(message);
+        break;
+      }
+      case 7: {
+        SendMessage(s, my_id, Requests::Orders, "");
+        std::string orders = ReadMessage(s);
+        std::cout << orders << std::endl;
+        if (orders == "No orders") {
+          break;
+        }
+        std::cout << "Input order num:\n";
+        std::size_t num;
+        std::cin >> num;
+        SendMessage(s, my_id, Requests::Cancel, "");
+        std::cout << ReadMessage(s) << std::endl;
+        break;
+      }
+      case 8: {
         exit(0);
         break;
       }
