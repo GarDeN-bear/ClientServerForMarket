@@ -1,12 +1,4 @@
-#include "Common.hpp"
-#include "json.hpp"
-#include <boost/asio.hpp>
-#include <boost/bind/bind.hpp>
-#include <chrono>
-#include <cstdlib>
-#include <iostream>
-#include <queue>
-#include <set>
+#include "trading_exchange_client.h"
 
 using boost::asio::ip::tcp;
 
@@ -138,172 +130,11 @@ std::string createOrdersMessage(const User &user) {
 }
 
 /**
- * @brief Класс хранилища пользователей и заявок в "стакане".
- * @details Регистрирует новых пользователей, добавляет заявки на
- * покупку/продажу и возвращает баланс пользователя.
- */
-class Core {
-public:
-  /**
-   * @brief Обработка заявок в "стакане".
-   */
-  void process() { matchOrders(); }
-
-  void matchOrders() {
-    if (orderBookToBuy_.empty() || orderBookToSell_.empty()) {
-      return;
-    }
-
-    Order orderToSell = *orderBookToSell_.begin();
-    Order orderToBuy = *orderBookToBuy_.begin();
-    CurrencyTypeValue price(orderToSell.price.first, 0.f);
-    CurrencyTypeValue volume(orderToSell.volume.first, 0.f);
-
-    if (orderToBuy.price.second >= orderToSell.price.second) {
-      CancelOrder(orderToSell);
-      CancelOrder(orderToBuy);
-      if (orderToSell.volume.second > orderToBuy.volume.second) {
-        orderToSell.volume.second -= orderToBuy.volume.second;
-        price.second = orderToBuy.price.second * orderToBuy.volume.second;
-        volume.second = orderToBuy.volume.second;
-        RegisterOrder(orderToSell);
-      } else if (orderToSell.volume.second < orderToBuy.volume.second) {
-        orderToBuy.volume.second -= orderToSell.volume.second;
-        volume.second = orderToSell.volume.second;
-        price.second = orderToBuy.price.second * orderToSell.volume.second;
-        RegisterOrder(orderToBuy);
-      }
-      Withdraw(orderToSell.userID, volume);
-      Deposit(orderToBuy.userID, volume);
-
-      std::cout << orderToBuy.price.second << " " << price.second << std::endl;
-      Deposit(orderToSell.userID, price);
-      Withdraw(orderToBuy.userID, price);
-    }
-  }
-  /**
-   * @brief Зарегистрировать нового пользователя.
-   * @param aUserName Имя пользователя.
-   * @return ID нового пользователя.
-   */
-  std::string RegisterNewUser(const std::string &aUserName) {
-    size_t newUserId = mUsers.size();
-    mUsers[newUserId].name = aUserName;
-    for (const std::string currency : currencies) {
-      mUsers[newUserId].balance[currency] = 0.f;
-    }
-    return std::to_string(newUserId);
-  }
-
-  /**
-   * @brief Получить информацию о клиенте.
-   * @param aUserId ID пользователя.
-   * @return Пользователь.
-   */
-  User GetUser(const std::string &aUserId) {
-    const auto userIt = mUsers.find(std::stoi(aUserId));
-    if (userIt == mUsers.cend()) {
-      std::cout << "Error! Unknown User" << std::endl;
-      User unknownUser;
-      return unknownUser;
-    } else {
-      return userIt->second;
-    }
-  }
-
-  /**
-   * @brief Зарегистрировать заявку на покупку/продажу.
-   * @param order Заявка.
-   * @return Результат регистрации заявки.
-   */
-  std::string RegisterOrder(const Order &order) {
-    User user = GetUser(order.userID);
-    if (user.name != "Unknown User") {
-      order.type == OrderType_Buy ? orderBookToBuy_.insert(order)
-                                  : orderBookToSell_.insert(order);
-      mUsers.find(std::stoi(order.userID))->second.orders.insert(order);
-      std::cout << mUsers.find(std::stoi(order.userID))->second.orders.size()
-                << std::endl;
-      return "-->Order to " +
-             std::string(order.type == OrderType_Buy ? "buy " : "sell ") +
-             std::to_string(order.volume.second) + order.volume.first +
-             " for " + std::to_string(order.price.second) + order.price.first +
-             " apiece accepted";
-    }
-    return user.name;
-  }
-
-  /**
-   * @brief Отменить заявку на покупку/продажу.
-   * @param order Заявка.
-   * @return Результат отмены заявки.
-   */
-  std::string CancelOrder(const Order &order) {
-    User user = GetUser(order.userID);
-    if (user.name != "Unknown User") {
-      order.type == OrderType_Buy ? orderBookToBuy_.erase(order)
-                                  : orderBookToSell_.erase(order);
-      mUsers.find(std::stoi(order.userID))->second.orders.erase(order);
-      return "-->Cancel order to " +
-             std::string(order.type == OrderType_Buy ? "buy " : "sell ") +
-             std::to_string(order.volume.second) + order.volume.first +
-             " for " + std::to_string(order.price.second) + order.price.first +
-             " apiece accepted";
-    }
-    return user.name;
-  }
-
-  /**
-   * @brief Снять денежные средства.
-   * @param aUserId ID пользователя.
-   * @param currencyTypeValue Тип валюты-значение.
-   * @return Результат снятия денежных средств.
-   */
-  std::string Withdraw(const std::string &aUserId,
-                       const CurrencyTypeValue &currencyTypeValue) {
-    User user = GetUser(aUserId);
-    if (user.name != "Unknown User") {
-      mUsers.find(std::stoi(aUserId))
-          ->second.balance[currencyTypeValue.first] -= currencyTypeValue.second;
-      return "-->Withdraw " + std::to_string(currencyTypeValue.second) +
-             currencyTypeValue.first + " accepted";
-    }
-    return user.name;
-  }
-
-  /**
-   * @brief Внести денежные средства.
-   * @param aUserId ID пользователя.
-   * @param currencyTypeValue Тмп валюты-значение.
-   * @return Результат внесения денежных средств.
-   */
-  std::string Deposit(const std::string &aUserId,
-                      const CurrencyTypeValue &currencyTypeValue) {
-    User user = GetUser(aUserId);
-    if (user.name != "Unknown User") {
-      mUsers.find(std::stoi(aUserId))
-          ->second.balance[currencyTypeValue.first] += currencyTypeValue.second;
-      return "-->Deposit " + std::to_string(currencyTypeValue.second) +
-             currencyTypeValue.first + " accepted";
-    }
-    return user.name;
-  }
-
-private:
-  //! Пользователи биржи.
-  std::map<size_t, User> mUsers;
-  //! Таблица заявок на покупку.
-  std::set<Order, CompareBuy> orderBookToBuy_;
-  //! Таблица заявок на продажу.
-  std::set<Order, CompareSell> orderBookToSell_;
-};
-
-/**
  * @brief Глобавльное хранилище пользователей и заявок в "стакане".
  */
-inline Core &GetCore() {
-  static Core core;
-  return core;
+inline TradingExchangeClient &GetTradingExchangeClient() {
+  static TradingExchangeClient TradingExchangeClient;
+  return TradingExchangeClient;
 }
 
 class session {
@@ -334,39 +165,41 @@ public:
       if (reqType == Requests::Registration) {
         // Это реквест на регистрацию пользователя.
         // Добавляем нового пользователя и возвращаем его ID.
-        reply = GetCore().RegisterNewUser(j["Message"]);
+        reply = GetTradingExchangeClient().RegisterNewUser(j["Message"]);
       } else if (reqType == Requests::Buy) {
         // Это реквест на регистрацию заявки на покупку.
         // Добавляем заявку пользователя в "стакан".
         Order order = parseOrderMessage(j["Message"]);
         order.userID = j["UserId"];
-        reply = GetCore().RegisterOrder(order);
+        reply = GetTradingExchangeClient().RegisterOrder(order);
       } else if (reqType == Requests::Sell) {
         // Это реквест на регистрацию заявки на продажу.
         // Добавляем заявку пользователя в "стакан".
         Order order = parseOrderMessage(j["Message"]);
         order.userID = j["UserId"];
-        reply = GetCore().RegisterOrder(order);
+        reply = GetTradingExchangeClient().RegisterOrder(order);
       } else if (reqType == Requests::Balance) {
         // Это реквест на получение баланса пользователя.
-        reply = createBalanceMessage(GetCore().GetUser(j["UserId"]));
+        reply = createBalanceMessage(
+            GetTradingExchangeClient().GetUser(j["UserId"]));
       } else if (reqType == Requests::Deposit) {
         // Это реквест на внесение денежный средств.
-        reply =
-            GetCore().Deposit(j["UserId"], parseTypeValueMessage(j["Message"]));
+        reply = GetTradingExchangeClient().Deposit(
+            j["UserId"], parseTypeValueMessage(j["Message"]));
       } else if (reqType == Requests::Withdraw) {
         // Это реквест на снятие денежных средств.
-        reply = GetCore().Withdraw(j["UserId"],
-                                   parseTypeValueMessage(j["Message"]));
+        reply = GetTradingExchangeClient().Withdraw(
+            j["UserId"], parseTypeValueMessage(j["Message"]));
       } else if (reqType == Requests::Orders) {
         // Это реквест на получение списка заявок пользователя.
-        reply = createOrdersMessage(GetCore().GetUser(j["UserId"]));
+        reply = createOrdersMessage(
+            GetTradingExchangeClient().GetUser(j["UserId"]));
       } else if (reqType == Requests::Cancel) {
         // Это реквест на отмену заявки.
         // Order order;
         // parseOrderMessage(order, j["Message"]);
         // order.userID = j["UserId"];
-        // reply = GetCore().CancelOrder(order);
+        // reply = GetTradingExchangeClient().CancelOrder(order);
       }
 
       boost::asio::async_write(socket_,
@@ -439,25 +272,10 @@ private:
 
   void process_orders() {
     // Вызов метода process
-    GetCore().process();
+    GetTradingExchangeClient().process();
 
     // Перезапуск таймера
     timer_.expires_at(timer_.expiry() + boost::asio::chrono::seconds(1));
     start_timer();
   }
 };
-
-int main() {
-  try {
-    boost::asio::io_service io_service;
-    static Core core;
-
-    server s(io_service);
-
-    io_service.run();
-  } catch (std::exception &e) {
-    std::cerr << "Server exception: " << e.what() << "\n";
-  }
-
-  return 0;
-}

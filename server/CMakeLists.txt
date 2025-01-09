@@ -1,12 +1,18 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 3.21)
 
-SET(json ${CMAKE_SOURCE_DIR}/json)
 SET(configs ${CMAKE_SOURCE_DIR}/configs)
 
 INCLUDE_DIRECTORIES(${json})
 INCLUDE_DIRECTORIES(${configs})
+INCLUDE_DIRECTORIES(session)
+INCLUDE_DIRECTORIES(trading_exchange)
 
-ADD_EXECUTABLE(Server Server.cpp ${configs}/Common.hpp ${json}/json.hpp)
+ADD_EXECUTABLE(Server 
+    main.cpp
+    server_client.cpp
+    session/session.cpp
+    trading_exchange/trading_exchange_client.cpp
+)
 
 FIND_PACKAGE(Boost 1.40 COMPONENTS system REQUIRED)
 FIND_PACKAGE(Threads REQUIRED)

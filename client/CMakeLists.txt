@@ -1,12 +1,13 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 3.21)
 
-SET(json ${CMAKE_SOURCE_DIR}/json)
 SET(configs ${CMAKE_SOURCE_DIR}/configs)
 
-INCLUDE_DIRECTORIES(${json})
 INCLUDE_DIRECTORIES(${configs})
 
-ADD_EXECUTABLE(Client Client.cpp ${configs}/Common.hpp ${json}/json.hpp)
+ADD_EXECUTABLE(Client
+    main.cpp
+    user_client.cpp
+)
 
 FIND_PACKAGE(Boost 1.40 COMPONENTS system REQUIRED)
 FIND_PACKAGE(Threads REQUIRED)

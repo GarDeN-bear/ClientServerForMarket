@@ -6,7 +6,8 @@
 static short port = 5555;
 
 namespace Requests {
-static std::string Registration = "Registration";
+static std::string SignIn = "SignIn";
+static std::string SignUp = "SignUp";
 static std::string Buy = "Buy";
 static std::string Sell = "Sell";
 static std::string Balance = "Balance";
