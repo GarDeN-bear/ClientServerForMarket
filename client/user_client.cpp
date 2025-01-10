@@ -52,7 +52,7 @@ std::string UserClient::signIn() {
   std::cout << "Hello! Enter your name: ";
   std::cin >> name;
 
-  sendRequest(Requests::SignIn, name);
+  sendRequest(common::requests::SignIn, name);
   return receiveResponse();
 }
 
@@ -61,7 +61,7 @@ std::string UserClient::signUp() {
   std::cout << "Hello! Enter your name: ";
   std::cin >> name;
 
-  sendRequest(Requests::SignUp, name);
+  sendRequest(common::requests::SignUp, name);
   return receiveResponse();
 }
 
@@ -109,25 +109,27 @@ void UserClient::switchMenuOption() {
   } else {
     switch (menuOptionNum) {
     case 1: {
-      const std::string orderRequest = createOrderRequest(Requests::Buy);
+      const std::string orderRequest =
+          createOrderRequest(common::requests::Buy);
       if (orderRequest.empty()) {
         break;
       }
-      sendRequest(Requests::Buy, orderRequest);
+      sendRequest(common::requests::Buy, orderRequest);
       std::cout << receiveResponse() << std::endl;
       break;
     }
     case 2: {
-      const std::string orderRequest = createOrderRequest(Requests::Sell);
+      const std::string orderRequest =
+          createOrderRequest(common::requests::Sell);
       if (orderRequest.empty()) {
         break;
       }
-      sendRequest(Requests::Sell, orderRequest);
+      sendRequest(common::requests::Sell, orderRequest);
       std::cout << receiveResponse() << std::endl;
       break;
     }
     case 3: {
-      sendRequest(Requests::Balance, "");
+      sendRequest(common::requests::Balance, "");
       std::cout << receiveResponse() << std::endl;
       break;
     }
@@ -143,7 +145,7 @@ void UserClient::switchMenuOption() {
       }
       std::pair<std::string, std::string> pair = {depositCurrencyType,
                                                   depositCurrencyValue};
-      sendRequest(Requests::Deposit, convertTypeValuePairToJSON(pair));
+      sendRequest(common::requests::Deposit, convertTypeValuePairToJSON(pair));
       std::cout << receiveResponse() << std::endl;
       break;
     }
@@ -159,12 +161,12 @@ void UserClient::switchMenuOption() {
       }
       std::pair<std::string, std::string> pair = {withdrawCurrencyType,
                                                   withdrawCurrencyValue};
-      sendRequest(Requests::Withdraw, convertTypeValuePairToJSON(pair));
+      sendRequest(common::requests::Withdraw, convertTypeValuePairToJSON(pair));
       std::cout << receiveResponse() << std::endl;
       break;
     }
     case 6: {
-      sendRequest(Requests::Orders, "");
+      sendRequest(common::requests::Orders, "");
       std::string message = receiveResponse();
       if (message == "No orders") {
         break;
@@ -173,7 +175,7 @@ void UserClient::switchMenuOption() {
       break;
     }
     case 7: {
-      sendRequest(Requests::Orders, "");
+      sendRequest(common::requests::Orders, "");
       std::string orders = receiveResponse();
       std::cout << orders << std::endl;
       if (orders == "No orders") {
@@ -182,7 +184,7 @@ void UserClient::switchMenuOption() {
       std::cout << "Input order num:\n";
       std::size_t num;
       std::cin >> num;
-      sendRequest(Requests::Cancel, "");
+      sendRequest(common::requests::Cancel, "");
       std::cout << receiveResponse() << std::endl;
       break;
     }
@@ -210,7 +212,7 @@ std::string UserClient::inputCurrencyPair() {
   std::cout << "Input currency pair:" << std::endl;
   std::string currencyPair;
   std::cin >> currencyPair;
-  if (currencyPairs.find(currencyPair) == currencyPairs.end()) {
+  if (common::currencyPairs.find(currencyPair) == common::currencyPairs.end()) {
     return "";
   }
   return currencyPair;
@@ -218,7 +220,7 @@ std::string UserClient::inputCurrencyPair() {
 
 void UserClient::showCurrencyTypes() {
   std::cout << "Currency types:" << std::endl;
-  for (const std::string &type : currencyTypes) {
+  for (const std::string &type : common::currencyTypes) {
     std::cout << type << std::endl;
   }
 }
@@ -227,7 +229,7 @@ std::string UserClient::inputCurrencyType() {
   std::cout << "Input currency type:" << std::endl;
   std::string currencyType;
   std::cin >> currencyType;
-  if (currencyTypes.find(currencyType) == currencyTypes.end()) {
+  if (common::currencyTypes.find(currencyType) == common::currencyTypes.end()) {
     return "";
   }
   return currencyType;
@@ -295,7 +297,7 @@ std::string UserClient::createOrderRequest(const std::string &orderType) {
 
 void UserClient::showCurrencyPairs() {
   std::cout << "Currency pairs:" << std::endl;
-  for (const std::string &pair : currencyPairs) {
+  for (const std::string &pair : common::currencyPairs) {
     std::cout << pair << std::endl;
   }
 }
@@ -327,8 +329,8 @@ void UserClient::parseOrdersMessage(const std::string &msg) {
   for (size_t i = 0; i < num; ++i) {
     std::cout << "Order №" << i + 1 << ":" << std::endl;
     std::cout << "Order type: "
-              << (j[std::to_string(i + 1)]["type"].get<OrderType>() ==
-                          OrderType_Buy
+              << (j[std::to_string(i + 1)]["type"].get<common::OrderType>() ==
+                          common::OrderType_Buy
                       ? "Buy"
                       : "Sell")
               << std::endl;

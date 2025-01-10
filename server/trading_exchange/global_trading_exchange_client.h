@@ -1,9 +1,9 @@
 #include "trading_exchange_client.h"
 
 /**
- * @brief Глобавльное хранилище пользователей и заявок в "стакане".
+ * @brief Глобавльный объект торговой биржи.
  */
-inline TradingExchangeClient &GetTradingExchangeClient() {
+inline TradingExchangeClient &GlobalTradingExchangeClient() {
   static TradingExchangeClient tradingExchangeClient;
   return tradingExchangeClient;
 }

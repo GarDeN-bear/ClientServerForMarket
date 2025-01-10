@@ -1,13 +1,11 @@
 #include <boost/asio.hpp>
 #include <iostream>
 
-#include "Common.hpp"
+#include "common.h"
 #include <nlohmann/json.hpp>
 #include <set>
 
 using boost::asio::ip::tcp;
-std::set<std::string> currencyPairs = {"RU-USD", "USD-RU"};
-std::set<std::string> currencyTypes = {"RU", "USD"};
 
 /**
  * @brief Клиент пользователя.
@@ -43,14 +41,6 @@ private:
     std::pair<std::string, std::string> price;
     std::string type;
     std::string time;
-  };
-
-  /**
-   * @brief Тип заявки.
-   */
-  enum OrderType {
-    OrderType_Buy, //!< Заявка на покупку.
-    OrderType_Sell //!< Заявка на продажу.
   };
 
   /**

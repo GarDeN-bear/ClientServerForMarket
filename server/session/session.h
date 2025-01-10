@@ -1,90 +1,68 @@
+#include "common.h"
+#include <boost/asio.hpp>
+#include <boost/bind/bind.hpp>
+#include <chrono>
+#include <cstdlib>
+#include <iostream>
+#include <nlohmann/json.hpp>
+#include <queue>
+#include <set>
 
-class session {
+using boost::asio::ip::tcp;
+
+/**
+ * @brief  Класс сессии связи между сервером и клиентом.
+ * @details Обрабатывает входящие запросы, выполняет соответствующие действия и
+ * отправляет ответы клиенту.
+ */
+class Session {
 public:
-  session(boost::asio::io_service &io_service) : socket_(io_service) {}
+  /**
+   * @brief Конструктор.
+   * @param io_service Сервис для сетевых операций.
+   */
+  Session(boost::asio::io_service &io_service);
 
-  tcp::socket &socket() { return socket_; }
+  /**
+   * @brief Получить сокет.
+   * @return Сокет.
+   */
+  tcp::socket &getSocket();
 
-  void start() {
-    socket_.async_read_some(
-        boost::asio::buffer(data_, max_length),
-        boost::bind(&session::handle_read, this,
-                    boost::asio::placeholders::error,
-                    boost::asio::placeholders::bytes_transferred));
-  }
+  /**
+   * @brief Запустить работу сессии.
+   */
+  void startSession();
 
-  // Обработка полученного сообщения.
-  void handle_read(const boost::system::error_code &error,
-                   size_t bytes_transferred) {
-    if (!error) {
-      data_[bytes_transferred] = '\0';
+  /**
+   * @brief Обработать входящие данные.
+   * @param error Ошибка чтения данных.
+   * @param bytes_transferred Количество принятых байт.
+   */
+  void handleRead(const boost::system::error_code &error,
+                  size_t bytes_transferred);
 
-      // Парсим json, который пришёл нам в сообщении.
-      auto j = nlohmann::json::parse(data_);
-      auto reqType = j["ReqType"];
-
-      std::string reply = "Error! Unknown request type";
-      if (reqType == Requests::Registration) {
-        // Это реквест на регистрацию пользователя.
-        // Добавляем нового пользователя и возвращаем его ID.
-        reply = GetCore().RegisterNewUser(j["Message"]);
-      } else if (reqType == Requests::Buy) {
-        // Это реквест на регистрацию заявки на покупку.
-        // Добавляем заявку пользователя в "стакан".
-        Order order = parseOrderMessage(j["Message"]);
-        order.userID = j["UserId"];
-        reply = GetCore().RegisterOrder(order);
-      } else if (reqType == Requests::Sell) {
-        // Это реквест на регистрацию заявки на продажу.
-        // Добавляем заявку пользователя в "стакан".
-        Order order = parseOrderMessage(j["Message"]);
-        order.userID = j["UserId"];
-        reply = GetCore().RegisterOrder(order);
-      } else if (reqType == Requests::Balance) {
-        // Это реквест на получение баланса пользователя.
-        reply = createBalanceMessage(GetCore().GetUser(j["UserId"]));
-      } else if (reqType == Requests::Deposit) {
-        // Это реквест на внесение денежный средств.
-        reply =
-            GetCore().Deposit(j["UserId"], parseTypeValueMessage(j["Message"]));
-      } else if (reqType == Requests::Withdraw) {
-        // Это реквест на снятие денежных средств.
-        reply = GetCore().Withdraw(j["UserId"],
-                                   parseTypeValueMessage(j["Message"]));
-      } else if (reqType == Requests::Orders) {
-        // Это реквест на получение списка заявок пользователя.
-        reply = createOrdersMessage(GetCore().GetUser(j["UserId"]));
-      } else if (reqType == Requests::Cancel) {
-        // Это реквест на отмену заявки.
-        // Order order;
-        // parseOrderMessage(order, j["Message"]);
-        // order.userID = j["UserId"];
-        // reply = GetCore().CancelOrder(order);
-      }
-
-      boost::asio::async_write(socket_,
-                               boost::asio::buffer(reply, reply.size()),
-                               boost::bind(&session::handle_write, this,
-                                           boost::asio::placeholders::error));
-    } else {
-      delete this;
-    }
-  }
-
-  void handle_write(const boost::system::error_code &error) {
-    if (!error) {
-      socket_.async_read_some(
-          boost::asio::buffer(data_, max_length),
-          boost::bind(&session::handle_read, this,
-                      boost::asio::placeholders::error,
-                      boost::asio::placeholders::bytes_transferred));
-    } else {
-      delete this;
-    }
-  }
+  /**
+   * @brief Обработать отправление данных.
+   * @param error Ошибка чтения данных.
+   */
+  void handleWrite(const boost::system::error_code &error);
 
 private:
-  tcp::socket socket_;
-  enum { max_length = 1024 };
-  char data_[max_length];
+  tcp::socket socket_;          //!< Сокет.
+  char data_[limits::buffSize]; //!< Принимаемые данные.
+
+  /**
+   * @brief Создать заявку из запроса.
+   * @param request Запрос.
+   * @return Заявка.
+   */
+  common::Order createOrderFromRequest(const std::string &request) const;
+
+  /**
+   * @brief Создать ответ на запрос.
+   * @param json Данные в JSON формате.
+   * @return Ответ.
+   */
+  std::string createResponse(const nlohmann::json &json);
 };

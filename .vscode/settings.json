@@ -70,6 +70,7 @@
         "cinttypes": "cpp",
         "valarray": "cpp",
         "deque": "cpp",
-        "list": "cpp"
+        "list": "cpp",
+        "queue": "cpp"
     }
 }

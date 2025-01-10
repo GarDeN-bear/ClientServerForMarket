@@ -1,90 +1,101 @@
+#include "session.h"
+#include "global_trading_exchange_client.h"
 
-class session {
-public:
-  session(boost::asio::io_service &io_service) : socket_(io_service) {}
+Session::Session(boost::asio::io_service &io_service) : socket_(io_service) {}
 
-  tcp::socket &socket() { return socket_; }
+tcp::socket &Session::getSocket() { return socket_; }
 
-  void start() {
+void Session::startSession() {
+  socket_.async_read_some(
+      boost::asio::buffer(data_, limits::buffSize),
+      boost::bind(&Session::handleRead, this, boost::asio::placeholders::error,
+                  boost::asio::placeholders::bytes_transferred));
+}
+
+void Session::handleRead(const boost::system::error_code &error,
+                         size_t bytes_transferred) {
+  if (!error) {
+    data_[bytes_transferred] = '\0';
+
+    nlohmann::json j = nlohmann::json::parse(data_);
+
+    std::string response = createResponse(j);
+
+    boost::asio::async_write(socket_,
+                             boost::asio::buffer(response, response.size()),
+                             boost::bind(&Session::handleWrite, this,
+                                         boost::asio::placeholders::error));
+  } else {
+    delete this;
+  }
+}
+
+void Session::handleWrite(const boost::system::error_code &error) {
+  if (!error) {
     socket_.async_read_some(
-        boost::asio::buffer(data_, max_length),
-        boost::bind(&session::handle_read, this,
+        boost::asio::buffer(data_, limits::buffSize),
+        boost::bind(&Session::handleRead, this,
                     boost::asio::placeholders::error,
                     boost::asio::placeholders::bytes_transferred));
+  } else {
+    delete this;
   }
+}
 
-  // Обработка полученного сообщения.
-  void handle_read(const boost::system::error_code &error,
-                   size_t bytes_transferred) {
-    if (!error) {
-      data_[bytes_transferred] = '\0';
+common::Order
+Session::createOrderFromRequest(const std::string &request) const {
+  common::Order order;
+  nlohmann::json j = nlohmann::json::parse(request);
+  order.volume.first = j["volume"]["currencyType"].get<std::string>();
+  order.volume.second = std::stof(j["volume"]["value"].get<std::string>());
+  order.price.first = j["price"]["currencyType"].get<std::string>();
+  order.price.second = std::stof(j["price"]["value"].get<std::string>());
+  std::cout << order.price.second << std::endl;
+  order.time = std::time_t(std::stol(j["time"].get<std::string>()));
+  order.type = j["type"].get<std::string>() == "Buy" ? common::OrderType_Buy
+                                                     : common::OrderType_Sell;
+  return order;
+}
 
-      // Парсим json, который пришёл нам в сообщении.
-      auto j = nlohmann::json::parse(data_);
-      auto reqType = j["ReqType"];
+std::string Session::createResponse(const nlohmann::json &json) {
+  const std::string reqType = json["ReqType"];
+  const std::string reqMessage = json["Message"];
+  const std::string reqUserId = json["UserId"];
 
-      std::string reply = "Error! Unknown request type";
-      if (reqType == Requests::Registration) {
-        // Это реквест на регистрацию пользователя.
-        // Добавляем нового пользователя и возвращаем его ID.
-        reply = GetCore().RegisterNewUser(j["Message"]);
-      } else if (reqType == Requests::Buy) {
-        // Это реквест на регистрацию заявки на покупку.
-        // Добавляем заявку пользователя в "стакан".
-        Order order = parseOrderMessage(j["Message"]);
-        order.userID = j["UserId"];
-        reply = GetCore().RegisterOrder(order);
-      } else if (reqType == Requests::Sell) {
-        // Это реквест на регистрацию заявки на продажу.
-        // Добавляем заявку пользователя в "стакан".
-        Order order = parseOrderMessage(j["Message"]);
-        order.userID = j["UserId"];
-        reply = GetCore().RegisterOrder(order);
-      } else if (reqType == Requests::Balance) {
-        // Это реквест на получение баланса пользователя.
-        reply = createBalanceMessage(GetCore().GetUser(j["UserId"]));
-      } else if (reqType == Requests::Deposit) {
-        // Это реквест на внесение денежный средств.
-        reply =
-            GetCore().Deposit(j["UserId"], parseTypeValueMessage(j["Message"]));
-      } else if (reqType == Requests::Withdraw) {
-        // Это реквест на снятие денежных средств.
-        reply = GetCore().Withdraw(j["UserId"],
-                                   parseTypeValueMessage(j["Message"]));
-      } else if (reqType == Requests::Orders) {
-        // Это реквест на получение списка заявок пользователя.
-        reply = createOrdersMessage(GetCore().GetUser(j["UserId"]));
-      } else if (reqType == Requests::Cancel) {
-        // Это реквест на отмену заявки.
-        // Order order;
-        // parseOrderMessage(order, j["Message"]);
-        // order.userID = j["UserId"];
-        // reply = GetCore().CancelOrder(order);
-      }
-
-      boost::asio::async_write(socket_,
-                               boost::asio::buffer(reply, reply.size()),
-                               boost::bind(&session::handle_write, this,
-                                           boost::asio::placeholders::error));
-    } else {
-      delete this;
+  if ((reqType == common::requests::Buy) ||
+      (reqType == common::requests::Sell)) {
+    const common::Order order = createOrderFromRequest(reqMessage);
+    return GlobalTradingExchangeClient().registerOrder(order);
+  } else if (reqType == common::requests::Balance) {
+    nlohmann::json jsonMessage;
+    const TradingExchangeClient::User user =
+        GlobalTradingExchangeClient().getUser(reqUserId);
+    for (const auto &currencyTypeValue : user.balance) {
+      jsonMessage[currencyTypeValue.first] = currencyTypeValue.second;
     }
-  }
-
-  void handle_write(const boost::system::error_code &error) {
-    if (!error) {
-      socket_.async_read_some(
-          boost::asio::buffer(data_, max_length),
-          boost::bind(&session::handle_read, this,
-                      boost::asio::placeholders::error,
-                      boost::asio::placeholders::bytes_transferred));
-    } else {
-      delete this;
+    return jsonMessage.dump();
+  } else if (reqType == common::requests::Orders) {
+    const TradingExchangeClient::User user =
+        GlobalTradingExchangeClient().getUser(reqUserId);
+    if (user.orders.empty()) {
+      return "No orders";
     }
+    nlohmann::json jsonMessage;
+    std::size_t num = 0;
+    for (const auto &order : user.orders) {
+      ++num;
+      jsonMessage[std::to_string(num)] = {
+          {"volume",
+           {{"currencyType", order.volume.first},
+            {"value", order.volume.second}}},
+          {"price",
+           {{"currencyType", order.price.first},
+            {"value", order.price.second}}},
+          {"type", order.type},
+          {"time", order.time}};
+    }
+    jsonMessage["count"] = num;
+    return jsonMessage.dump();
   }
-
-private:
-  tcp::socket socket_;
-  enum { max_length = 1024 };
-  char data_[max_length];
-};
+  return "Unknown request";
+}
