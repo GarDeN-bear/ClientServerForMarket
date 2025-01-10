@@ -1,3 +1,5 @@
+#pragma once
+
 #include "common.h"
 #include <boost/asio.hpp>
 #include <boost/bind/bind.hpp>

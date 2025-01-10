@@ -29,8 +29,10 @@ const std::string Orders = "Orders";
 const std::string Cancel = "Cancel";
 } // namespace requests
 
-std::set<std::string> currencyPairs = {"RU-USD", "USD-RU"};
-std::set<std::string> currencyTypes = {"RU", "USD"};
+namespace currency {
+const std::set<std::string> currencyPairs = {"RU-USD", "USD-RU"};
+const std::set<std::string> currencyTypes = {"RU", "USD"};
+} // namespace currency
 
 typedef std::map<std::string, float> Balance; //<! Баланс.
 //! Пара тип валюты - значение.

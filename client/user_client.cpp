@@ -212,7 +212,8 @@ std::string UserClient::inputCurrencyPair() {
   std::cout << "Input currency pair:" << std::endl;
   std::string currencyPair;
   std::cin >> currencyPair;
-  if (common::currencyPairs.find(currencyPair) == common::currencyPairs.end()) {
+  if (common::currency::currencyPairs.find(currencyPair) ==
+      common::currency::currencyPairs.end()) {
     return "";
   }
   return currencyPair;
@@ -220,7 +221,7 @@ std::string UserClient::inputCurrencyPair() {
 
 void UserClient::showCurrencyTypes() {
   std::cout << "Currency types:" << std::endl;
-  for (const std::string &type : common::currencyTypes) {
+  for (const std::string &type : common::currency::currencyTypes) {
     std::cout << type << std::endl;
   }
 }
@@ -229,7 +230,8 @@ std::string UserClient::inputCurrencyType() {
   std::cout << "Input currency type:" << std::endl;
   std::string currencyType;
   std::cin >> currencyType;
-  if (common::currencyTypes.find(currencyType) == common::currencyTypes.end()) {
+  if (common::currency::currencyTypes.find(currencyType) ==
+      common::currency::currencyTypes.end()) {
     return "";
   }
   return currencyType;
@@ -297,7 +299,7 @@ std::string UserClient::createOrderRequest(const std::string &orderType) {
 
 void UserClient::showCurrencyPairs() {
   std::cout << "Currency pairs:" << std::endl;
-  for (const std::string &pair : common::currencyPairs) {
+  for (const std::string &pair : common::currency::currencyPairs) {
     std::cout << pair << std::endl;
   }
 }

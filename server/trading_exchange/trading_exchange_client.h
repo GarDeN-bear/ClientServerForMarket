@@ -1,6 +1,6 @@
-#include "common.h"
+#pragma once
 
-using boost::asio::ip::tcp;
+#include "common.h"
 
 /**
  * @brief Клиент торговой биржи.
@@ -89,23 +89,23 @@ public:
    */
   std::string cancelOrder(const common::Order &order);
 
-  //   /**
-  //    * @brief Снять денежные средства.
-  //    * @param aUserId ID пользователя.
-  //    * @param currencyTypeValue Тип валюты-значение.
-  //    * @return Результат снятия денежных средств.
-  //    */
-  //   std::string withdraw(const std::string &aUserId,
-  //                        const CurrencyTypeValue &currencyTypeValue);
+  /**
+   * @brief Снять денежные средства.
+   * @param aUserId ID пользователя.
+   * @param currencyTypeValue Тип валюты-значение.
+   * @return Результат снятия денежных средств.
+   */
+  std::string withdraw(const std::string &aUserId,
+                       const common::CurrencyTypeValue &currencyTypeValue);
 
-  //   /**
-  //    * @brief Внести денежные средства.
-  //    * @param aUserId ID пользователя.
-  //    * @param currencyTypeValue Тмп валюты-значение.
-  //    * @return Результат внесения денежных средств.
-  //    */
-  //   std::string deposit(const std::string &aUserId,
-  //                       const CurrencyTypeValue &currencyTypeValue);
+  /**
+   * @brief Внести денежные средства.
+   * @param aUserId ID пользователя.
+   * @param currencyTypeValue Тмп валюты-значение.
+   * @return Результат внесения денежных средств.
+   */
+  std::string deposit(const std::string &aUserId,
+                      const common::CurrencyTypeValue &currencyTypeValue);
 
 private:
   //! Пользователи биржи.

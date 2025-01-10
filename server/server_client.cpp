@@ -18,7 +18,7 @@ Server::Server(boost::asio::io_service &io_service)
 void Server::handleAccept(Session *new_session,
                           const boost::system::error_code &error) {
   if (!error) {
-    new_session->start();
+    new_session->startSession();
     new_session = new Session(io_service_);
     acceptor_.async_accept(new_session->getSocket(),
                            boost::bind(&Server::handleAccept, this, new_session,

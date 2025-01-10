@@ -1,9 +1,7 @@
-#include <boost/asio.hpp>
-#include <iostream>
+#pragma once
 
 #include "common.h"
 #include <nlohmann/json.hpp>
-#include <set>
 
 using boost::asio::ip::tcp;
 
