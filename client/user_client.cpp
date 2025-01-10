@@ -8,7 +8,6 @@ UserClient::UserClient(const std::string &address, const uint16_t port,
     tcp::resolver::query query(tcp::v4(), address_, std::to_string(port_));
     tcp::resolver::iterator iterator = resolver.resolve(query);
 
-    tcp::socket s_(io_service);
     s_.connect(*iterator);
   } catch (std::exception &e) {
     std::cerr << "UserClient::UserClient exception: " << e.what() << "\n";
@@ -110,7 +109,7 @@ void UserClient::switchMenuOption() {
     switch (menuOptionNum) {
     case 1: {
       const std::string orderRequest =
-          createOrderRequest(common::requests::Buy);
+          createOrderRequest(common::OrderType_Buy);
       if (orderRequest.empty()) {
         break;
       }
@@ -120,7 +119,7 @@ void UserClient::switchMenuOption() {
     }
     case 2: {
       const std::string orderRequest =
-          createOrderRequest(common::requests::Sell);
+          createOrderRequest(common::OrderType_Sell);
       if (orderRequest.empty()) {
         break;
       }
@@ -257,7 +256,7 @@ std::string UserClient::inputCurrencyValue() {
   return currencyValue;
 }
 
-std::string UserClient::createOrderRequest(const std::string &orderType) {
+std::string UserClient::createOrderRequest(const common::OrderType &orderType) {
   showCurrencyPairs();
   std::cout << "\nInput currency pair" << std::endl;
   std::string currencyPair = inputCurrencyPair();
@@ -287,13 +286,14 @@ std::string UserClient::createOrderRequest(const std::string &orderType) {
   std::time_t time =
       std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 
-  OrderRequest request;
+  common::Order request;
+  request.userID = myId_;
   request.volume.first = separatedCurrencyPair.first;
-  request.volume.second = volume;
+  request.volume.second = std::stof(volume);
   request.price.first = separatedCurrencyPair.second;
-  request.price.second = price;
+  request.price.second = std::stof(price);
   request.type = orderType;
-  request.time = std::to_string(time);
+  request.time = time;
   return orderRequestToJson(request);
 }
 
@@ -313,7 +313,7 @@ bool UserClient::isValidFloat(const std::string &str) {
   }
 }
 
-std::string UserClient::orderRequestToJson(const OrderRequest &request) {
+std::string UserClient::orderRequestToJson(const common::Order &request) {
   nlohmann::json jsonStr;
   jsonStr["volume"] = {{"currencyType", request.volume.first},
                        {"value", request.volume.second}};
@@ -321,6 +321,7 @@ std::string UserClient::orderRequestToJson(const OrderRequest &request) {
                       {"value", request.price.second}};
   jsonStr["type"] = request.type;
   jsonStr["time"] = request.time;
+  jsonStr["userID"] = request.userID;
   return jsonStr.dump();
 }
 

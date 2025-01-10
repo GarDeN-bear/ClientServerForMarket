@@ -34,13 +34,6 @@ private:
   tcp::socket s_;       //!< Сокет.
   std::string myId_;    //!< ID клиента.
 
-  struct OrderRequest {
-    std::pair<std::string, std::string> volume;
-    std::pair<std::string, std::string> price;
-    std::string type;
-    std::string time;
-  };
-
   /**
    * @details Войти в аккаунт.
    * @return ID клиента.
@@ -77,7 +70,7 @@ private:
    * @param orderType Тип заявки.
    * @return Ответ от сервера.
    */
-  std::string createOrderRequest(const std::string &orderType);
+  std::string createOrderRequest(const common::OrderType &orderType);
 
   /**
    * @brief Показать валютные пары.
@@ -127,7 +120,7 @@ private:
    * @param request Запрос.
    * @return JSON строка.
    */
-  std::string orderRequestToJson(const OrderRequest &request);
+  std::string orderRequestToJson(const common::Order &request);
 
   /**
    * @brief Парсить сообщение с заявками пользователя.

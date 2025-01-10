@@ -46,14 +46,14 @@ common::Order
 Session::createOrderFromRequest(const std::string &request) const {
   common::Order order;
   nlohmann::json j = nlohmann::json::parse(request);
+  order.userID = j["userID"].get<std::string>();
   order.volume.first = j["volume"]["currencyType"].get<std::string>();
-  order.volume.second = std::stof(j["volume"]["value"].get<std::string>());
+  order.volume.second = j["volume"]["value"].get<float>();
   order.price.first = j["price"]["currencyType"].get<std::string>();
-  order.price.second = std::stof(j["price"]["value"].get<std::string>());
-  std::cout << order.price.second << std::endl;
-  order.time = std::time_t(std::stol(j["time"].get<std::string>()));
-  order.type = j["type"].get<std::string>() == "Buy" ? common::OrderType_Buy
-                                                     : common::OrderType_Sell;
+  order.price.second = j["price"]["value"].get<float>();
+  order.time = j["time"].get<std::time_t>();
+  std::cout << "yes" << std::endl;
+  order.type = j["type"].get<common::OrderType>();
   return order;
 }
 
@@ -62,8 +62,10 @@ std::string Session::createResponse(const nlohmann::json &json) {
   const std::string reqMessage = json["Message"];
   const std::string reqUserId = json["UserId"];
 
-  if ((reqType == common::requests::Buy) ||
-      (reqType == common::requests::Sell)) {
+  if (reqType == common::requests::SignUp) {
+    return GlobalTradingExchangeClient().registerNewUser(reqMessage);
+  } else if ((reqType == common::requests::Buy) ||
+             (reqType == common::requests::Sell)) {
     const common::Order order = createOrderFromRequest(reqMessage);
     return GlobalTradingExchangeClient().registerOrder(order);
   } else if (reqType == common::requests::Balance) {
