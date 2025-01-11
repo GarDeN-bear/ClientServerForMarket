@@ -1,7 +1,6 @@
 #pragma once
 
 #include "common.h"
-#include <nlohmann/json.hpp>
 
 using boost::asio::ip::tcp;
 
@@ -133,6 +132,5 @@ private:
    * @param pair Пара.
    * @return JSON строка.
    */
-  std::string
-  convertTypeValuePairToJSON(const std::pair<std::string, std::string> &pair);
+  std::string convertTypeValuePairToJSON(const common::CurrencyTypeValue &pair);
 };

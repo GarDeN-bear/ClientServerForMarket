@@ -1,8 +1,5 @@
 #include "trading_exchange_client.h"
 
-/**
- * @brief Обработка заявок в "стакане".
- */
 void TradingExchangeClient::process() { matchOrders(); }
 
 void TradingExchangeClient::matchOrders() {
@@ -37,30 +34,28 @@ void TradingExchangeClient::matchOrders() {
     withdraw(orderToBuy.userID, price);
   }
 }
-/**
- * @brief Зарегистрировать нового пользователя.
- * @param aUserName Имя пользователя.
- * @return ID нового пользователя.
- */
+
 std::string
-TradingExchangeClient::registerNewUser(const std::string &aUserName) {
-  size_t newUserId = mUsers.size();
-  mUsers[newUserId].name = aUserName;
-  for (const std::string currency : common::currency::currencyTypes) {
-    mUsers[newUserId].balance[currency] = 0.f;
+TradingExchangeClient::registerNewUser(const std::string &userName) {
+  for (const auto &userPair : users) {
+    if (userPair.second.name == userName) {
+      return userPair.second.userId;
+    }
   }
+  size_t newUserId = users.size();
+  users[newUserId].name = userName;
+  users[newUserId].userId = std::to_string(newUserId);
+  for (const std::string currency : common::currency::currencyTypes) {
+    users[newUserId].balance[currency] = 0.f;
+  }
+
   return std::to_string(newUserId);
 }
 
-/**
- * @brief Получить информацию о клиенте.
- * @param aUserId ID пользователя.
- * @return Пользователь.
- */
 TradingExchangeClient::User
-TradingExchangeClient::getUser(const std::string &aUserId) {
-  const auto userIt = mUsers.find(std::stoi(aUserId));
-  if (userIt == mUsers.cend()) {
+TradingExchangeClient::getUserById(const std::string &userId) {
+  const auto userIt = users.find(std::stoi(userId));
+  if (userIt == users.cend()) {
     std::cout << "Error! Unknown User" << std::endl;
     User unknownUser;
     return unknownUser;
@@ -69,82 +64,60 @@ TradingExchangeClient::getUser(const std::string &aUserId) {
   }
 }
 
-/**
- * @brief Зарегистрировать заявку на покупку/продажу.
- * @param order Заявка.
- * @return Результат регистрации заявки.
- */
+TradingExchangeClient::User
+TradingExchangeClient::getUserByName(const std::string &userName) {
+  for (const auto &userPair : users) {
+    if (userPair.second.name == userName) {
+      return userPair.second;
+    }
+  }
+  return User();
+}
+
 std::string TradingExchangeClient::registerOrder(const common::Order &order) {
-  User user = getUser(order.userID);
+  User user = getUserById(order.userID);
   if (user.name != "Unknown User") {
     order.type == common::OrderType_Buy ? orderBookToBuy_.insert(order)
                                         : orderBookToSell_.insert(order);
-    mUsers.find(std::stoi(order.userID))->second.orders.insert(order);
-    std::cout << mUsers.find(std::stoi(order.userID))->second.orders.size()
+    users.find(std::stoi(order.userID))->second.orders.insert(order);
+    std::cout << users.find(std::stoi(order.userID))->second.orders.size()
               << std::endl;
-    return "-->Order to " +
-           std::string(order.type == common::OrderType_Buy ? "buy " : "sell ") +
-           std::to_string(order.volume.second) + order.volume.first + " for " +
-           std::to_string(order.price.second) + order.price.first +
-           " apiece accepted";
+    return "Order registration accepted";
   }
   return user.name;
 }
 
-/**
- * @brief Отменить заявку на покупку/продажу.
- * @param order Заявка.
- * @return Результат отмены заявки.
- */
 std::string TradingExchangeClient::cancelOrder(const common::Order &order) {
-  User user = getUser(order.userID);
+  User user = getUserById(order.userID);
   if (user.name != "Unknown User") {
     order.type == common::OrderType_Buy ? orderBookToBuy_.erase(order)
                                         : orderBookToSell_.erase(order);
-    mUsers.find(std::stoi(order.userID))->second.orders.erase(order);
-    return "-->Cancel order to " +
-           std::string(order.type == common::OrderType_Buy ? "buy " : "sell ") +
-           std::to_string(order.volume.second) + order.volume.first + " for " +
-           std::to_string(order.price.second) + order.price.first +
-           " apiece accepted";
+    users.find(std::stoi(order.userID))->second.orders.erase(order);
+    return "Order cancel accepted";
   }
   return user.name;
 }
 
-/**
- * @brief Снять денежные средства.
- * @param aUserId ID пользователя.
- * @param currencyTypeValue Тип валюты-значение.
- * @return Результат снятия денежных средств.
- */
 std::string TradingExchangeClient::withdraw(
-    const std::string &aUserId,
+    const std::string &userId,
     const common::CurrencyTypeValue &currencyTypeValue) {
-  User user = getUser(aUserId);
+  User user = getUserById(userId);
   if (user.name != "Unknown User") {
-    mUsers.find(std::stoi(aUserId))->second.balance[currencyTypeValue.first] -=
+    users.find(std::stoi(userId))->second.balance[currencyTypeValue.first] -=
         currencyTypeValue.second;
-    return "-->Withdraw " + std::to_string(currencyTypeValue.second) +
-           currencyTypeValue.first + " accepted";
+    return "Withdraw accepted";
   }
   return user.name;
 }
 
-/**
- * @brief Внести денежные средства.
- * @param aUserId ID пользователя.
- * @param currencyTypeValue Тмп валюты-значение.
- * @return Результат внесения денежных средств.
- */
 std::string TradingExchangeClient::deposit(
-    const std::string &aUserId,
+    const std::string &userId,
     const common::CurrencyTypeValue &currencyTypeValue) {
-  User user = getUser(aUserId);
+  User user = getUserById(userId);
   if (user.name != "Unknown User") {
-    mUsers.find(std::stoi(aUserId))->second.balance[currencyTypeValue.first] +=
+    users.find(std::stoi(userId))->second.balance[currencyTypeValue.first] +=
         currencyTypeValue.second;
-    return "-->Deposit " + std::to_string(currencyTypeValue.second) +
-           currencyTypeValue.first + " accepted";
+    return "Deposit accepted";
   }
   return user.name;
 }

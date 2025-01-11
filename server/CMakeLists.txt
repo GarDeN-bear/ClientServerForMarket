@@ -8,7 +8,7 @@ INCLUDE_DIRECTORIES(trading_exchange)
 
 ADD_EXECUTABLE(Server 
     main.cpp
-    server_client.cpp
+    trading_exchange_server.cpp
     session/session.cpp
     trading_exchange/trading_exchange_client.cpp
 )

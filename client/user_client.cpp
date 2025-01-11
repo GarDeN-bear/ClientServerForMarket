@@ -2,7 +2,7 @@
 
 UserClient::UserClient(const std::string &address, const uint16_t port,
                        boost::asio::io_service &io_service)
-    : address_(address), port_(port), s_(io_service), myId_("") {
+    : address_(address), port_(port), s_(io_service), myId_("Unknown User") {
   try {
     tcp::resolver resolver(io_service);
     tcp::resolver::query query(tcp::v4(), address_, std::to_string(port_));
@@ -16,7 +16,7 @@ UserClient::UserClient(const std::string &address, const uint16_t port,
 
 void UserClient::process() {
   try {
-    while (myId_.empty()) {
+    while (myId_ == "Unknown User") {
       // Мы предполагаем, что для идентификации пользователя будет
       // использоваться ID. Тут мы "регистрируем" пользователя - отправляем на
       // сервер имя, а сервер возвращает нам ID. Этот ID далее используется при
@@ -86,14 +86,20 @@ std::string UserClient::receiveResponse() {
 void UserClient::switchMenuOption() {
   short menuOptionNum;
   std::cin >> menuOptionNum;
-  if (myId_.empty()) {
+  if (myId_ == "Unknown User") {
     switch (menuOptionNum) {
     case 1: {
       myId_ = signIn();
+      if (myId_ == "Unknown User") {
+        std::cout << myId_ << std::endl;
+      }
       break;
     }
     case 2: {
       myId_ = signUp();
+      if (myId_ == "Unknown User") {
+        std::cout << myId_ << std::endl;
+      }
       break;
     }
     case 3: {
@@ -142,8 +148,8 @@ void UserClient::switchMenuOption() {
       if (depositCurrencyValue.empty()) {
         break;
       }
-      std::pair<std::string, std::string> pair = {depositCurrencyType,
-                                                  depositCurrencyValue};
+      const common::CurrencyTypeValue pair(depositCurrencyType,
+                                           std::stof(depositCurrencyValue));
       sendRequest(common::requests::Deposit, convertTypeValuePairToJSON(pair));
       std::cout << receiveResponse() << std::endl;
       break;
@@ -158,8 +164,8 @@ void UserClient::switchMenuOption() {
       if (withdrawCurrencyValue.empty()) {
         break;
       }
-      std::pair<std::string, std::string> pair = {withdrawCurrencyType,
-                                                  withdrawCurrencyValue};
+      const common::CurrencyTypeValue pair(withdrawCurrencyType,
+                                           std::stof(withdrawCurrencyValue));
       sendRequest(common::requests::Withdraw, convertTypeValuePairToJSON(pair));
       std::cout << receiveResponse() << std::endl;
       break;
@@ -175,15 +181,16 @@ void UserClient::switchMenuOption() {
     }
     case 7: {
       sendRequest(common::requests::Orders, "");
-      std::string orders = receiveResponse();
-      std::cout << orders << std::endl;
-      if (orders == "No orders") {
+      const std::string message = receiveResponse();
+      if (message == "No orders") {
         break;
       }
+      parseOrdersMessage(message);
       std::cout << "Input order num:\n";
       std::size_t num;
       std::cin >> num;
-      sendRequest(common::requests::Cancel, "");
+      nlohmann::json j = nlohmann::json::parse(message);
+      sendRequest(common::requests::Cancel, j[std::to_string(num)].dump());
       std::cout << receiveResponse() << std::endl;
       break;
     }
@@ -199,11 +206,10 @@ void UserClient::switchMenuOption() {
   }
 }
 
-std::string UserClient::convertTypeValuePairToJSON(
-    const std::pair<std::string, std::string> &pair) {
+std::string
+UserClient::convertTypeValuePairToJSON(const common::CurrencyTypeValue &pair) {
   nlohmann::json jsonStr;
-  jsonStr["currencyType"] = pair.first;
-  jsonStr["value"] = pair.second;
+  jsonStr["pair"] = pair;
   return jsonStr.dump();
 }
 
@@ -258,7 +264,6 @@ std::string UserClient::inputCurrencyValue() {
 
 std::string UserClient::createOrderRequest(const common::OrderType &orderType) {
   showCurrencyPairs();
-  std::cout << "\nInput currency pair" << std::endl;
   std::string currencyPair = inputCurrencyPair();
   if (currencyPair.empty()) {
     std::cout << "UserClient::createOrderRequest:Wrong currency pair\n"

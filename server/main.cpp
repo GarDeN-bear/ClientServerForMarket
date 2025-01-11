@@ -1,9 +1,9 @@
-#include "server_client.h"
+#include "trading_exchange_server.h"
 
 int main() {
   try {
     boost::asio::io_service io_service;
-    Server s(io_service);
+    TradingExchangeServer s(io_service);
 
     io_service.run();
   } catch (std::exception &e) {

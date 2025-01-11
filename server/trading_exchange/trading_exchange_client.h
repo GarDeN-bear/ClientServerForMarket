@@ -38,7 +38,7 @@ private:
    */
   struct Compare {
     bool operator()(const common::Order &a, const common::Order &b) const {
-      return a.time > b.time;
+      return a.time < b.time;
     }
   };
 
@@ -48,6 +48,7 @@ public:
    */
   struct User {
     std::string name = "Unknown User";       //!< Имя.
+    std::string userId = "Unknown User";     //!< ID.
     common::Balance balance;                 //!< Баланс.
     std::set<common::Order, Compare> orders; //!< Заявки.
   };
@@ -64,17 +65,24 @@ public:
 
   /**
    * @brief Зарегистрировать нового пользователя.
-   * @param aUserName Имя пользователя.
+   * @param userName Имя пользователя.
    * @return ID нового пользователя.
    */
-  std::string registerNewUser(const std::string &aUserName);
+  std::string registerNewUser(const std::string &userName);
 
   /**
    * @brief Получить информацию о клиенте.
-   * @param aUserId ID пользователя.
+   * @param userId ID пользователя.
    * @return Пользователь.
    */
-  User getUser(const std::string &aUserId);
+  User getUserById(const std::string &userId);
+
+  /**
+   * @brief Получить информацию о клиенте.
+   * @param userName Имя пользователя.
+   * @return Пользователь.
+   */
+  User getUserByName(const std::string &userName);
 
   /**
    * @brief Зарегистрировать заявку на покупку/продажу.
@@ -91,25 +99,25 @@ public:
 
   /**
    * @brief Снять денежные средства.
-   * @param aUserId ID пользователя.
+   * @param userId ID пользователя.
    * @param currencyTypeValue Тип валюты-значение.
    * @return Результат снятия денежных средств.
    */
-  std::string withdraw(const std::string &aUserId,
+  std::string withdraw(const std::string &userId,
                        const common::CurrencyTypeValue &currencyTypeValue);
 
   /**
    * @brief Внести денежные средства.
-   * @param aUserId ID пользователя.
+   * @param userId ID пользователя.
    * @param currencyTypeValue Тмп валюты-значение.
    * @return Результат внесения денежных средств.
    */
-  std::string deposit(const std::string &aUserId,
+  std::string deposit(const std::string &userId,
                       const common::CurrencyTypeValue &currencyTypeValue);
 
 private:
   //! Пользователи биржи.
-  std::map<size_t, User> mUsers;
+  std::map<size_t, User> users;
   //! Таблица заявок на покупку.
   std::set<common::Order, CompareBuy> orderBookToBuy_;
   //! Таблица заявок на продажу.

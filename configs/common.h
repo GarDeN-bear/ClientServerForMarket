@@ -51,7 +51,7 @@ enum OrderType {
  * @brief Заявка.
  */
 struct Order {
-  std::string userID; //!< ID пользователя.
+  std::string userID = ""; //!< ID пользователя.
   //! Объём заявки (сколько необходимо купить валюты).
   CurrencyTypeValue volume = CurrencyTypeValue("", 0.f);
   //! Цена покупаемой валюты.
