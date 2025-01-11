@@ -10,7 +10,7 @@ UserClient::UserClient(const std::string &address, const uint16_t port,
 
     s_.connect(*iterator);
   } catch (std::exception &e) {
-    std::cerr << "UserClient::UserClient exception: " << e.what() << "\n";
+    std::cerr << "UserClient exception: " << e.what() << "\n";
   }
 }
 
@@ -138,10 +138,12 @@ void UserClient::switchMenuOption() {
       showCurrencyTypes();
       const std::string depositCurrencyType = inputCurrencyType();
       if (depositCurrencyType.empty()) {
+        std::cout << "Wrong currency type\n" << std::endl;
         break;
       }
       const std::string depositCurrencyValue = inputCurrencyValue();
       if (depositCurrencyValue.empty()) {
+        std::cout << "Wrong currency value\n" << std::endl;
         break;
       }
       const common::CurrencyTypeValue pair(depositCurrencyType,
@@ -154,10 +156,12 @@ void UserClient::switchMenuOption() {
       showCurrencyTypes();
       const std::string withdrawCurrencyType = inputCurrencyType();
       if (withdrawCurrencyType.empty()) {
+        std::cout << "Wrong currency type\n" << std::endl;
         break;
       }
       const std::string withdrawCurrencyValue = inputCurrencyValue();
       if (withdrawCurrencyValue.empty()) {
+        std::cout << "Wrong currency value\n" << std::endl;
         break;
       }
       const common::CurrencyTypeValue pair(withdrawCurrencyType,
@@ -170,6 +174,7 @@ void UserClient::switchMenuOption() {
       sendRequest(common::requests::Orders, "");
       std::string message = receiveResponse();
       if (message == "No orders") {
+        std::cout << message << std::endl;
         break;
       }
       parseOrdersMessage(message);
@@ -187,6 +192,7 @@ void UserClient::switchMenuOption() {
       std::string num;
       std::cin >> num;
       if (!isValidInt(num)) {
+        std::cout << "Wrong number input" << std::endl;
         break;
       }
       nlohmann::json j = nlohmann::json::parse(message);
@@ -271,8 +277,7 @@ std::string UserClient::createOrderRequest(const common::OrderType &orderType) {
   showCurrencyPairs();
   std::string currencyPair = inputCurrencyPair();
   if (currencyPair.empty()) {
-    std::cout << "UserClient::createOrderRequest:Wrong currency pair\n"
-              << std::endl;
+    std::cout << "Wrong currency pair\n" << std::endl;
     return "";
   }
   std::pair<std::string, std::string> separatedCurrencyPair =
@@ -281,16 +286,14 @@ std::string UserClient::createOrderRequest(const common::OrderType &orderType) {
             << std::endl;
   std::string volume = inputCurrencyValue();
   if (volume.empty()) {
-    std::cout << "UserClient::createOrderRequest:Wrong volume value\n"
-              << std::endl;
+    std::cout << "Wrong volume value\n" << std::endl;
     return "";
   }
   std::cout << "\nInput price (" + separatedCurrencyPair.second + ")"
             << std::endl;
   std::string price = inputCurrencyValue();
   if (price.empty()) {
-    std::cout << "UserClient::createOrderRequest:Wrong price value\n"
-              << std::endl;
+    std::cout << "Wrong price value\n" << std::endl;
     return "";
   }
   std::time_t time =
