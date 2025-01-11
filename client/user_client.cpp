@@ -17,10 +17,6 @@ UserClient::UserClient(const std::string &address, const uint16_t port,
 void UserClient::process() {
   try {
     while (myId_ == "Unknown User") {
-      // Мы предполагаем, что для идентификации пользователя будет
-      // использоваться ID. Тут мы "регистрируем" пользователя - отправляем на
-      // сервер имя, а сервер возвращает нам ID. Этот ID далее используется при
-      // отправке запросов.
       std::cout << "Menu:\n"
                    "1) Sign in\n"
                    "2) Sign up\n"
@@ -183,6 +179,7 @@ void UserClient::switchMenuOption() {
       sendRequest(common::requests::Orders, "");
       const std::string message = receiveResponse();
       if (message == "No orders") {
+        std::cout << message << std::endl;
         break;
       }
       parseOrdersMessage(message);
