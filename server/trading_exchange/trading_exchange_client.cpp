@@ -11,6 +11,10 @@ void TradingExchangeClient::matchOrders() {
   common::Order orderToBuy = *orderBookToBuy_.begin();
   common::CurrencyTypeValue price(orderToSell.price.first, 0.f);
   common::CurrencyTypeValue volume(orderToSell.volume.first, 0.f);
+  if ((orderToSell.volume.first != orderToBuy.volume.first) ||
+      (orderToSell.price.first != orderToBuy.price.first)) {
+    return;
+  }
 
   if (orderToBuy.price.second >= orderToSell.price.second) {
     cancelOrder(orderToSell);
