@@ -184,10 +184,18 @@ void UserClient::switchMenuOption() {
       }
       parseOrdersMessage(message);
       std::cout << "Input order num:\n";
-      std::size_t num;
+      std::string num;
       std::cin >> num;
+      if (!isValidInt(num)) {
+        break;
+      }
       nlohmann::json j = nlohmann::json::parse(message);
-      sendRequest(common::requests::Cancel, j[std::to_string(num)].dump());
+      if ((std::stoi(num) < 1) ||
+          (std::stoi(num) > j["count"].get<std::size_t>())) {
+        std::cout << "Wrong number input" << std::endl;
+        break;
+      }
+      sendRequest(common::requests::Cancel, j[num].dump());
       std::cout << receiveResponse() << std::endl;
       break;
     }
@@ -310,6 +318,15 @@ bool UserClient::isValidFloat(const std::string &str) {
   try {
     float value = std::stof(str);
     return value >= 0.f;
+  } catch (std::exception &e) {
+    return false;
+  }
+}
+
+bool UserClient::isValidInt(const std::string &str) {
+  try {
+    std::size_t value = std::stoi(str);
+    return value >= 0;
   } catch (std::exception &e) {
     return false;
   }

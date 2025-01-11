@@ -41,7 +41,6 @@ void Session::handleWrite(const boost::system::error_code &error) {
 
 common::Order
 Session::createOrderFromRequest(const std::string &request) const {
-  std::cout << request << std::endl;
   common::Order order;
   nlohmann::json j = nlohmann::json::parse(request);
   order.userID = j["userID"].get<std::string>();
@@ -108,7 +107,6 @@ std::string Session::createResponse(const nlohmann::json &json) {
     j["count"] = num;
     return j.dump();
   } else if (reqType == common::requests::Cancel) {
-    std::cout << reqMessage << std::endl;
     const common::Order order = createOrderFromRequest(reqMessage);
     return GlobalTradingExchangeClient().cancelOrder(order);
   }

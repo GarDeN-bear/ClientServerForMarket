@@ -115,6 +115,13 @@ private:
   bool isValidFloat(const std::string &str);
 
   /**
+   * @brief Валидно ли преобразование строки к int.
+   * @param str Строка с значением.
+   * @return true-да, false-нет.
+   */
+  bool isValidInt(const std::string &str);
+
+  /**
    * @brief Функция для создания JSON строки из OrderRequest.
    * @param request Запрос.
    * @return JSON строка.

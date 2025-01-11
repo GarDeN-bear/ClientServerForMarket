@@ -84,8 +84,6 @@ std::string TradingExchangeClient::registerOrder(const common::Order &order) {
     order.type == common::OrderType_Buy ? orderBookToBuy_.insert(order)
                                         : orderBookToSell_.insert(order);
     users.find(std::stoi(order.userID))->second.orders.insert(order);
-    std::cout << users.find(std::stoi(order.userID))->second.orders.size()
-              << std::endl;
     return "Order registration accepted";
   }
   return user.name;
