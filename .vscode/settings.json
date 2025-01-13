@@ -71,6 +71,7 @@
         "valarray": "cpp",
         "deque": "cpp",
         "list": "cpp",
-        "queue": "cpp"
+        "queue": "cpp",
+        "fstream": "cpp"
     }
 }

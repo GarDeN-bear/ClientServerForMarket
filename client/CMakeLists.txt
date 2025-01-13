@@ -4,7 +4,7 @@ SET(configs ${CMAKE_SOURCE_DIR}/configs)
 
 INCLUDE_DIRECTORIES(${configs})
 
-ADD_EXECUTABLE(Client
+ADD_EXECUTABLE(client
     main.cpp
     user_client.cpp
 )
@@ -15,4 +15,4 @@ INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIR})
 
 SET(CMAKE_CXX_STANDARD 17)
 
-TARGET_LINK_LIBRARIES(Client PRIVATE Threads::Threads ${Boost_LIBRARIES})
+TARGET_LINK_LIBRARIES(client PRIVATE Threads::Threads ${Boost_LIBRARIES})

@@ -217,6 +217,8 @@ void UserClient::switchMenuOption() {
   }
 }
 
+#include <fstream>
+
 std::string
 UserClient::convertTypeValuePairToJSON(const common::CurrencyTypeValue &pair) {
   nlohmann::json jsonStr;

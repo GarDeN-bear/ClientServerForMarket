@@ -6,7 +6,7 @@ INCLUDE_DIRECTORIES(${configs})
 INCLUDE_DIRECTORIES(session)
 INCLUDE_DIRECTORIES(trading_exchange)
 
-ADD_EXECUTABLE(Server 
+ADD_EXECUTABLE(server 
     main.cpp
     trading_exchange_server.cpp
     session/session.cpp
@@ -19,4 +19,4 @@ INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIR})
 
 SET(CMAKE_CXX_STANDARD 17)
 
-TARGET_LINK_LIBRARIES(Server PRIVATE Threads::Threads ${Boost_LIBRARIES})
+TARGET_LINK_LIBRARIES(server PRIVATE Threads::Threads ${Boost_LIBRARIES})
